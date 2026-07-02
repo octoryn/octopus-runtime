@@ -100,15 +100,7 @@ export interface ErrorInfo {
  * - `failed`    — render or execute threw, or a connector call timed out.
  */
 export type Outcome =
-  | "observed"
-  | "predicted"
-  | "drafted"
-  | "executed"
-  | "rejected"
-  | "expired"
-  | "denied"
-  | "skipped"
-  | "failed";
+  "observed" | "predicted" | "drafted" | "executed" | "rejected" | "expired" | "denied" | "skipped" | "failed";
 
 /** The record produced for every planned action, at every autonomy level. */
 export interface ExecutionResult {

@@ -22,7 +22,7 @@ function runFor(workflowId: string, eventId: string): RunRecord {
     status: "completed",
     results: [],
     startedAt: "2020-01-01T00:00:00.000Z",
-    finishedAt: "2020-01-01T00:00:00.000Z",
+    finishedAt: "2020-01-01T00:00:00.000Z"
   };
 }
 

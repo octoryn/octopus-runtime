@@ -8,10 +8,7 @@ test("Shadow uses render only — an execute that would throw is never reached",
   // execute is rigged to throw; if the engine ever calls it in Shadow, the
   // outcome would be `failed` instead of `predicted`.
   const probe = probeConnector({ executeThrows: true });
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow })]);
 
   const run = await runtime.run("wf", testEvent());
   assert.equal(run.results[0]?.outcome, "predicted");
@@ -20,10 +17,7 @@ test("Shadow uses render only — an execute that would throw is never reached",
 
 test("Draft uses render only — a throwing execute is never reached until approval", async () => {
   const probe = probeConnector({ executeThrows: true });
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   assert.equal(run.results[0]?.outcome, "drafted");
@@ -34,7 +28,7 @@ test("render is pure: its payload is what execute later receives", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous, value: "abc" })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous, value: "abc" })]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -47,7 +41,7 @@ test("execute is reached only on the Autonomous path", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   await runtime.run("wf", testEvent());

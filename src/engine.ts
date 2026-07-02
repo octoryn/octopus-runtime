@@ -22,24 +22,16 @@ import type {
   PlannedAction,
   RenderedAction,
   RunRecord,
-  TriggerEvent,
+  TriggerEvent
 } from "./types.js";
-import type {
-  Clock,
-  Store,
-  AuditSink,
-  ApprovalGateway,
-  SecretProvider,
-  Transactor,
-  StateChange,
-} from "./ports.js";
+import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor, StateChange } from "./ports.js";
 import type { Approval, ApprovalDecision } from "./approvals.js";
 import type { ConnectorContext, ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
 import { AutonomyLevel } from "./autonomy.js";
 import { decide } from "./policy.js";
 import { evaluateConditions } from "./conditions.js";
-import { routeFor, type GateRoute } from "./gate.js";
+import { routeFor } from "./gate.js";
 import { validatePlan } from "./workflow.js";
 import { newId, idempotencyKey, compositeKey } from "./ids.js";
 import { toErrorInfo, nowIso, toRecordable, withTimeout, isEngineTimeout } from "./internal.js";
@@ -73,12 +65,7 @@ export interface EngineDeps {
 }
 
 /** Outcomes that satisfy a downstream dependency; anything else fails closed. */
-const SATISFYING_OUTCOMES: ReadonlySet<Outcome> = new Set<Outcome>([
-  "observed",
-  "predicted",
-  "drafted",
-  "executed",
-]);
+const SATISFYING_OUTCOMES: ReadonlySet<Outcome> = new Set<Outcome>(["observed", "predicted", "drafted", "executed"]);
 
 export class Engine {
   readonly #deps: EngineDeps;
@@ -131,7 +118,7 @@ export class Engine {
     const existing = await this.#deps.store.findRunByEvent(workflow.id, event.id);
     if (existing) {
       await this.#auditEmitter(existing.id, workflow.id)("trigger", "trigger.deduplicated", {
-        eventId: event.id,
+        eventId: event.id
       });
       return existing;
     }
@@ -143,18 +130,18 @@ export class Engine {
 
     await emit("trigger", "trigger.received", {
       eventId: event.id,
-      source: event.source,
+      source: event.source
     });
 
     // --- Conditions ------------------------------------------------------
     const conditionResult = evaluateConditions(workflow.conditions ?? [], {
       event,
       runId,
-      workflowId,
+      workflowId
     });
     await emit("condition", "condition.evaluated", {
       passed: conditionResult.passed,
-      evaluations: conditionResult.evaluations,
+      evaluations: conditionResult.evaluations
     });
     if (!conditionResult.passed) {
       const run: RunRecord = {
@@ -165,7 +152,7 @@ export class Engine {
         haltedReason: "condition_not_met",
         results: [],
         startedAt,
-        finishedAt: nowIso(this.#deps.clock),
+        finishedAt: nowIso(this.#deps.clock)
       };
       await this.#deps.store.saveRun(run);
       return run;
@@ -180,8 +167,8 @@ export class Engine {
         connectorId: a.connectorId,
         actionType: a.actionType,
         requestedAutonomy: a.requestedAutonomy,
-        dependsOn: a.dependsOn ?? [],
-      })),
+        dependsOn: a.dependsOn ?? []
+      }))
     });
 
     // --- Sequential execution -------------------------------------------
@@ -200,7 +187,7 @@ export class Engine {
       status: "completed",
       results,
       startedAt,
-      finishedAt: nowIso(this.#deps.clock),
+      finishedAt: nowIso(this.#deps.clock)
     };
     try {
       await this.#deps.store.saveRun(run);
@@ -228,7 +215,7 @@ export class Engine {
     event: TriggerEvent,
     runId: string,
     action: PlannedAction,
-    byRef: Map<string, ExecutionResult>,
+    byRef: Map<string, ExecutionResult>
   ): Promise<ExecutionResult> {
     const startedAt = nowIso(this.#deps.clock);
     const emit = this.#auditEmitter(runId, workflow.id, action.ref);
@@ -238,7 +225,7 @@ export class Engine {
       actionRef: action.ref,
       connectorId: action.connectorId,
       actionType: action.actionType,
-      requestedAutonomy: action.requestedAutonomy,
+      requestedAutonomy: action.requestedAutonomy
     } as const;
 
     // Fail-closed: a dependency that did not reach a satisfying outcome blocks
@@ -255,7 +242,7 @@ export class Engine {
         effectiveAutonomy: action.requestedAutonomy,
         outcome: "skipped",
         reason,
-        startedAt,
+        startedAt
       });
     }
 
@@ -265,7 +252,7 @@ export class Engine {
       action,
       runId,
       workflowId: workflow.id,
-      clock: this.#deps.clock,
+      clock: this.#deps.clock
     });
     await emit("policy", "policy.decided", {
       requestedAutonomy: decision.requestedAutonomy,
@@ -273,26 +260,26 @@ export class Engine {
       requiresApproval: decision.requiresApproval,
       denied: decision.denied ?? null,
       appliedPolicies: decision.appliedPolicies,
-      constraints: decision.constraints,
+      constraints: decision.constraints
     });
 
     const route = routeFor(decision);
     await emit("autonomy_gate", "gate.routed", {
       route,
-      effectiveAutonomy: decision.effectiveAutonomy,
+      effectiveAutonomy: decision.effectiveAutonomy
     });
 
     const common = {
       ...base,
       effectiveAutonomy: decision.effectiveAutonomy,
-      startedAt,
+      startedAt
     };
 
     if (route === "denied") {
       return this.#finish(emit, {
         ...common,
         outcome: "denied",
-        reason: decision.denied ?? "denied_by_policy",
+        reason: decision.denied ?? "denied_by_policy"
       });
     }
 
@@ -314,7 +301,7 @@ export class Engine {
         ...common,
         outcome: "failed",
         reason: "input_validation_failed",
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
     }
 
@@ -325,13 +312,13 @@ export class Engine {
     } catch (err) {
       const timedOut = isEngineTimeout(err);
       await emit("connector_render", timedOut ? "render.timed_out" : "render.failed", {
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
       return this.#finish(emit, {
         ...common,
         outcome: "failed",
         reason: timedOut ? "render_timeout" : "render_failed",
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
     }
 
@@ -347,7 +334,7 @@ export class Engine {
         ...common,
         outcome: "drafted",
         rendered,
-        approvalId: approval.id,
+        approvalId: approval.id
       });
     }
 
@@ -355,26 +342,26 @@ export class Engine {
     try {
       const outcome = await this.#withTimeout(definition.execute(rendered, cctx), "execute");
       await emit("connector_execute", "execute.succeeded", {
-        effectRefs: outcome.effectRefs ?? [],
+        effectRefs: outcome.effectRefs ?? []
       });
       return this.#finish(emit, {
         ...common,
         outcome: "executed",
         rendered,
         output: toRecordable(outcome.output),
-        effectRefs: outcome.effectRefs,
+        effectRefs: outcome.effectRefs
       });
     } catch (err) {
       const timedOut = isEngineTimeout(err);
       await emit("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", {
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
       return this.#finish(emit, {
         ...common,
         outcome: "failed",
         reason: timedOut ? "execute_timeout" : "execute_failed",
         rendered,
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
     }
   }
@@ -387,10 +374,7 @@ export class Engine {
    * Concurrent calls for the same approval id are serialized so an approval can
    * never be resolved — or executed — twice, independent of the gateway adapter.
    */
-  async resolveApproval(
-    approvalId: string,
-    decision: ApprovalDecision,
-  ): Promise<ExecutionResult> {
+  async resolveApproval(approvalId: string, decision: ApprovalDecision): Promise<ExecutionResult> {
     if (this.#resolving.has(approvalId)) {
       throw new ConfigurationError(`approval "${approvalId}" is already being resolved`);
     }
@@ -402,16 +386,11 @@ export class Engine {
     }
   }
 
-  async #applyApprovalDecision(
-    approvalId: string,
-    decision: ApprovalDecision,
-  ): Promise<ExecutionResult> {
+  async #applyApprovalDecision(approvalId: string, decision: ApprovalDecision): Promise<ExecutionResult> {
     const approval = await this.#deps.approvals.get(approvalId);
     if (!approval) throw new NotFoundError(`unknown approval "${approvalId}"`);
     if (approval.status !== "pending") {
-      throw new ConfigurationError(
-        `approval "${approvalId}" is already ${approval.status}`,
-      );
+      throw new ConfigurationError(`approval "${approvalId}" is already ${approval.status}`);
     }
 
     // Fail-closed on TTL: an approval decided after its deadline never executes.
@@ -430,7 +409,7 @@ export class Engine {
       effectiveAutonomy: AutonomyLevel.Draft,
       rendered: approval.rendered,
       approvalId,
-      startedAt: prior?.startedAt ?? nowIso(this.#deps.clock),
+      startedAt: prior?.startedAt ?? nowIso(this.#deps.clock)
     };
 
     // --- Rejected: no effect. Flip the approval and record the result as one
@@ -442,8 +421,8 @@ export class Engine {
         result,
         audit: [
           this.#decisionRecord(approval, { approved: false, decidedBy: decision.decidedBy }),
-          this.#resultRecord(approval, result.outcome),
-        ],
+          this.#resultRecord(approval, result.outcome)
+        ]
       });
       return result;
     }
@@ -458,7 +437,7 @@ export class Engine {
       approval.runId,
       approval.workflowId,
       approval.actionRef,
-      approval.idempotencyKey,
+      approval.idempotencyKey
     );
 
     // Build the decision + its audit record BEFORE executing, so audit `at`
@@ -466,35 +445,47 @@ export class Engine {
     // approval only actually flips to `approved` when the commit lands, after
     // the effect.)
     const resolvedApproval = this.#decide(approval, "approved", decision);
-    const audit: AuditRecord[] = [
-      this.#decisionRecord(approval, { approved: true, decidedBy: decision.decidedBy }),
-    ];
+    const audit: AuditRecord[] = [this.#decisionRecord(approval, { approved: true, decidedBy: decision.decidedBy })];
     let result: ExecutionResult;
     try {
       const outcome = await this.#withTimeout(definition.execute(approval.rendered, cctx), "execute");
       audit.push(
-        this.#record("connector_execute", "execute.succeeded", approval.runId, approval.workflowId, approval.actionRef, {
-          effectRefs: outcome.effectRefs ?? [],
-        }),
+        this.#record(
+          "connector_execute",
+          "execute.succeeded",
+          approval.runId,
+          approval.workflowId,
+          approval.actionRef,
+          {
+            effectRefs: outcome.effectRefs ?? []
+          }
+        )
       );
       result = this.#finishData({
         ...common,
         outcome: "executed",
         output: toRecordable(outcome.output),
-        effectRefs: outcome.effectRefs,
+        effectRefs: outcome.effectRefs
       });
     } catch (err) {
       const timedOut = isEngineTimeout(err);
       audit.push(
-        this.#record("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", approval.runId, approval.workflowId, approval.actionRef, {
-          error: toErrorInfo(err),
-        }),
+        this.#record(
+          "connector_execute",
+          timedOut ? "execute.timed_out" : "execute.failed",
+          approval.runId,
+          approval.workflowId,
+          approval.actionRef,
+          {
+            error: toErrorInfo(err)
+          }
+        )
       );
       result = this.#finishData({
         ...common,
         outcome: "failed",
         reason: timedOut ? "execute_timeout" : "execute_failed",
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
     }
     audit.push(this.#resultRecord(approval, result.outcome));
@@ -526,19 +517,14 @@ export class Engine {
 
   // --- helpers -----------------------------------------------------------
 
-  #connectorContext(
-    runId: string,
-    workflowId: string,
-    actionRef: string,
-    idemKey: string,
-  ): ConnectorContext {
+  #connectorContext(runId: string, workflowId: string, actionRef: string, idemKey: string): ConnectorContext {
     return {
       runId,
       workflowId,
       actionRef,
       idempotencyKey: idemKey,
       secrets: this.#deps.secrets,
-      clock: this.#deps.clock,
+      clock: this.#deps.clock
     };
   }
 
@@ -547,7 +533,7 @@ export class Engine {
     workflowId: string,
     action: PlannedAction,
     idemKey: string,
-    rendered: RenderedAction,
+    rendered: RenderedAction
   ): Approval {
     const now = this.#deps.clock.now();
     const approval: Approval = {
@@ -561,7 +547,7 @@ export class Engine {
       requestedAutonomy: action.requestedAutonomy,
       idempotencyKey: idemKey,
       rendered,
-      createdAt: now.toISOString(),
+      createdAt: now.toISOString()
     };
     const ttl = this.#deps.approvalTtlMs;
     if (ttl !== undefined && ttl > 0) {
@@ -592,17 +578,17 @@ export class Engine {
       approvalId: approval.id,
       outcome: "expired",
       reason: "approval_expired",
-      startedAt: prior?.startedAt ?? decidedAt,
+      startedAt: prior?.startedAt ?? decidedAt
     });
     await this.#commit({
       approval: { ...approval, status: "expired", decidedAt },
       result,
       audit: [
         this.#record("approval_decision", "approval.expired", approval.runId, approval.workflowId, approval.actionRef, {
-          approvalId: approval.id,
+          approvalId: approval.id
         }),
-        this.#resultRecord(approval, result.outcome),
-      ],
+        this.#resultRecord(approval, result.outcome)
+      ]
     });
     return result;
   }
@@ -620,34 +606,34 @@ export class Engine {
   }
 
   /** Produce the resolved approval for a decision (approved/rejected). */
-  #decide(
-    approval: Approval,
-    status: "approved" | "rejected",
-    decision: ApprovalDecision,
-  ): Approval {
+  #decide(approval: Approval, status: "approved" | "rejected", decision: ApprovalDecision): Approval {
     const resolved: Approval = {
       ...approval,
       status,
       decidedAt: nowIso(this.#deps.clock),
-      decidedBy: decision.decidedBy,
+      decidedBy: decision.decidedBy
     };
     if (decision.note !== undefined) resolved.note = decision.note;
     return resolved;
   }
 
-  #decisionRecord(
-    approval: Approval,
-    detail: { approved: boolean; decidedBy: string },
-  ): AuditRecord {
-    return this.#record("approval_decision", "approval.decided", approval.runId, approval.workflowId, approval.actionRef, {
-      approvalId: approval.id,
-      ...detail,
-    });
+  #decisionRecord(approval: Approval, detail: { approved: boolean; decidedBy: string }): AuditRecord {
+    return this.#record(
+      "approval_decision",
+      "approval.decided",
+      approval.runId,
+      approval.workflowId,
+      approval.actionRef,
+      {
+        approvalId: approval.id,
+        ...detail
+      }
+    );
   }
 
   #resultRecord(approval: Approval, outcome: string): AuditRecord {
     return this.#record("result", "result.recorded", approval.runId, approval.workflowId, approval.actionRef, {
-      outcome,
+      outcome
     });
   }
 
@@ -659,10 +645,7 @@ export class Engine {
   }
 
   /** Build a result, emit its terminal `result.recorded` audit, and return it. */
-  async #finish(
-    emit: AuditEmitter,
-    data: Omit<ExecutionResult, "finishedAt">,
-  ): Promise<ExecutionResult> {
+  async #finish(emit: AuditEmitter, data: Omit<ExecutionResult, "finishedAt">): Promise<ExecutionResult> {
     const result = this.#finishData(data);
     await emit("result", "result.recorded", { outcome: result.outcome });
     return result;
@@ -674,9 +657,7 @@ export class Engine {
 
   #auditEmitter(runId: string, workflowId: string, actionRef?: string): AuditEmitter {
     return async (boundary, event, detail) => {
-      await this.#deps.audit.append(
-        this.#record(boundary, event, runId, workflowId, actionRef, detail),
-      );
+      await this.#deps.audit.append(this.#record(boundary, event, runId, workflowId, actionRef, detail));
     };
   }
 
@@ -687,7 +668,7 @@ export class Engine {
     runId: string,
     workflowId: string,
     actionRef?: string,
-    detail?: Record<string, unknown>,
+    detail?: Record<string, unknown>
   ): AuditRecord {
     const record: AuditRecord = {
       id: newId("aud"),
@@ -695,7 +676,7 @@ export class Engine {
       boundary,
       event,
       runId,
-      workflowId,
+      workflowId
     };
     if (actionRef !== undefined) record.actionRef = actionRef;
     if (detail !== undefined) record.detail = detail;
@@ -703,11 +684,7 @@ export class Engine {
   }
 }
 
-type AuditEmitter = (
-  boundary: Boundary,
-  event: string,
-  detail?: Record<string, unknown>,
-) => Promise<void>;
+type AuditEmitter = (boundary: Boundary, event: string, detail?: Record<string, unknown>) => Promise<void>;
 
 // Re-export for convenience when only the effect-ref type is needed.
 export type { EffectRef };

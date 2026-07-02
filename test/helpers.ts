@@ -17,7 +17,7 @@ import {
   type PlannedAction,
   type Runtime,
   type TriggerEvent,
-  type Workflow,
+  type Workflow
 } from "../src/index.js";
 import * as s from "../src/schema.js";
 
@@ -29,15 +29,17 @@ export interface Probe {
 }
 
 /** A connector whose render/execute are observable and optionally fail. */
-export function probeConnector(opts: {
-  renderThrows?: boolean;
-  executeThrows?: boolean;
-} = {}): Probe {
+export function probeConnector(
+  opts: {
+    renderThrows?: boolean;
+    executeThrows?: boolean;
+  } = {}
+): Probe {
   const probe: Probe = {
     renderCalls: 0,
     executeCalls: 0,
     lastRenderedPayload: undefined,
-    connector: undefined as unknown as Connector,
+    connector: undefined as unknown as Connector
   };
 
   probe.connector = defineConnector({
@@ -57,9 +59,9 @@ export function probeConnector(opts: {
           probe.executeCalls += 1;
           if (opts.executeThrows) throw new Error("execute boom");
           return { output: { ok: true }, effectRefs: [{ kind: "probe.effect", id: "e1" }] };
-        },
-      }),
-    ],
+        }
+      })
+    ]
   });
 
   return probe;
@@ -84,9 +86,9 @@ export function singleActionWorkflow(options: {
         connectorId: "probe",
         actionType: "probe.act",
         requestedAutonomy: options.requestedAutonomy,
-        input: { value: options.value ?? "hello" },
-      },
-    ],
+        input: { value: options.value ?? "hello" }
+      }
+    ]
   });
 }
 
@@ -102,7 +104,7 @@ export function planWorkflow(options: {
     match: (event) => event.source === "test",
     conditions: options.conditions ?? [],
     policies: options.policies ?? [],
-    plan: () => options.actions,
+    plan: () => options.actions
   });
 }
 
@@ -112,7 +114,7 @@ export function testEvent(payload: unknown = {}): TriggerEvent {
     id: "evt-1",
     source: "test",
     occurredAt: "2020-01-01T00:00:00.000Z",
-    payload,
+    payload
   };
 }
 

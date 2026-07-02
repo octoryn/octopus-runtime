@@ -8,7 +8,7 @@ import {
   type Policy,
   type PolicyContext,
   type PolicyRuling,
-  type PlannedAction,
+  type PlannedAction
 } from "../src/index.js";
 
 function policy(id: string, ruling: PolicyRuling): Policy {
@@ -21,14 +21,14 @@ function contextFor(requestedAutonomy: AutonomyLevel): PolicyContext {
     connectorId: "probe",
     actionType: "probe.act",
     requestedAutonomy,
-    input: {},
+    input: {}
   };
   return {
     event: { id: "e", source: "test", occurredAt: "2020-01-01T00:00:00.000Z", payload: {} },
     action,
     runId: "run-1",
     workflowId: "wf",
-    clock: new ManualClock(),
+    clock: new ManualClock()
   };
 }
 
@@ -42,7 +42,7 @@ test("no policies leaves the requested autonomy unchanged", async () => {
 test("a policy can lower autonomy", async () => {
   const decision = await decide(
     [policy("cap-draft", { cap: AutonomyLevel.Draft })],
-    contextFor(AutonomyLevel.Autonomous),
+    contextFor(AutonomyLevel.Autonomous)
   );
   assert.equal(decision.effectiveAutonomy, AutonomyLevel.Draft);
   assert.deepEqual(decision.appliedPolicies, ["cap-draft"]);
@@ -51,7 +51,7 @@ test("a policy can lower autonomy", async () => {
 test("a policy can NEVER raise autonomy above what was requested", async () => {
   const decision = await decide(
     [policy("try-raise", { cap: AutonomyLevel.Autonomous })],
-    contextFor(AutonomyLevel.Shadow),
+    contextFor(AutonomyLevel.Shadow)
   );
   // Requested Shadow; a policy asking for Autonomous contributes nothing.
   assert.equal(decision.effectiveAutonomy, AutonomyLevel.Shadow);
@@ -70,17 +70,14 @@ test("most restrictive policy wins, regardless of order", async () => {
 });
 
 test("adding a policy can only tighten, never loosen (monotonicity)", async () => {
-  const base = await decide(
-    [policy("cap-draft", { cap: AutonomyLevel.Draft })],
-    contextFor(AutonomyLevel.Autonomous),
-  );
+  const base = await decide([policy("cap-draft", { cap: AutonomyLevel.Draft })], contextFor(AutonomyLevel.Autonomous));
   const withMore = await decide(
     [
       policy("cap-draft", { cap: AutonomyLevel.Draft }),
       policy("cap-observe", { cap: AutonomyLevel.Observe }),
-      policy("try-raise", { cap: AutonomyLevel.Autonomous }),
+      policy("try-raise", { cap: AutonomyLevel.Autonomous })
     ],
-    contextFor(AutonomyLevel.Autonomous),
+    contextFor(AutonomyLevel.Autonomous)
   );
   // The extra policies can only lower (Observe) or no-op (raise attempt).
   assert.equal(base.effectiveAutonomy, AutonomyLevel.Draft);
@@ -90,7 +87,7 @@ test("adding a policy can only tighten, never loosen (monotonicity)", async () =
 test("deny is recorded and sticky to the first denier", async () => {
   const decision = await decide(
     [policy("a", {}), policy("b", { deny: "not allowed" }), policy("c", { deny: "also no" })],
-    contextFor(AutonomyLevel.Autonomous),
+    contextFor(AutonomyLevel.Autonomous)
   );
   assert.equal(decision.denied, "not allowed");
 });
@@ -100,10 +97,10 @@ test("requireApproval is surfaced and constraints accumulate", async () => {
     [
       policy("approval", { requireApproval: true }),
       policy("limits", {
-        constraints: [{ type: "rate_limit", detail: { perHour: 10 } }],
-      }),
+        constraints: [{ type: "rate_limit", detail: { perHour: 10 } }]
+      })
     ],
-    contextFor(AutonomyLevel.Autonomous),
+    contextFor(AutonomyLevel.Autonomous)
   );
   assert.equal(decision.requiresApproval, true);
   assert.equal(decision.constraints.length, 1);

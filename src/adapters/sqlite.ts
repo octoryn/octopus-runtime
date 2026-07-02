@@ -84,20 +84,18 @@ export class SqliteStore implements Store {
     this.#db
       .prepare(
         `INSERT INTO runs (id, workflow_id, event_id, data) VALUES (@id, @workflowId, @eventId, @data)
-         ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data`
       )
       .run({
         id: run.id,
         workflowId: run.workflowId,
         eventId: run.event.id,
-        data: safeJsonStringify(run),
+        data: safeJsonStringify(run)
       });
   }
 
   async getRun(runId: string): Promise<RunRecord | undefined> {
-    const row = this.#db.prepare(`SELECT data FROM runs WHERE id = ?`).get(runId) as
-      | { data: string }
-      | undefined;
+    const row = this.#db.prepare(`SELECT data FROM runs WHERE id = ?`).get(runId) as { data: string } | undefined;
     return row ? (JSON.parse(row.data) as RunRecord) : undefined;
   }
 
@@ -109,9 +107,7 @@ export class SqliteStore implements Store {
   async saveResult(result: ExecutionResult): Promise<void> {
     // Atomic read-modify-write of the embedded results array.
     const update = this.#db.transaction((res: ExecutionResult) => {
-      const row = this.#db.prepare(`SELECT data FROM runs WHERE id = ?`).get(res.runId) as
-        | { data: string }
-        | undefined;
+      const row = this.#db.prepare(`SELECT data FROM runs WHERE id = ?`).get(res.runId) as { data: string } | undefined;
       if (!row) return;
       const run = JSON.parse(row.data) as RunRecord;
       const idx = run.results.findIndex((r) => r.actionRef === res.actionRef);
@@ -153,9 +149,9 @@ export class SqliteAuditSink implements AuditSink {
     const rows =
       filter?.runId === undefined
         ? (this.#db.prepare(`SELECT data FROM audit ORDER BY seq`).all() as { data: string }[])
-        : (this.#db
-            .prepare(`SELECT data FROM audit WHERE run_id = ? ORDER BY seq`)
-            .all(filter.runId) as { data: string }[]);
+        : (this.#db.prepare(`SELECT data FROM audit WHERE run_id = ? ORDER BY seq`).all(filter.runId) as {
+            data: string;
+          }[]);
     return rows.map((r) => JSON.parse(r.data) as AuditRecord);
   }
 }
@@ -178,8 +174,7 @@ export class SqliteApprovalGateway implements ApprovalGateway {
 
   async get(approvalId: string): Promise<Approval | undefined> {
     const row = this.#db.prepare(`SELECT data FROM approvals WHERE id = ?`).get(approvalId) as
-      | { data: string }
-      | undefined;
+      { data: string } | undefined;
     return row ? (JSON.parse(row.data) as Approval) : undefined;
   }
 
@@ -187,9 +182,7 @@ export class SqliteApprovalGateway implements ApprovalGateway {
     const rows =
       filter?.status === undefined
         ? (this.#db.prepare(`SELECT data FROM approvals`).all() as { data: string }[])
-        : (this.#db
-            .prepare(`SELECT data FROM approvals WHERE status = ?`)
-            .all(filter.status) as { data: string }[]);
+        : (this.#db.prepare(`SELECT data FROM approvals WHERE status = ?`).all(filter.status) as { data: string }[]);
     return rows.map((r) => JSON.parse(r.data) as Approval);
   }
 
@@ -197,7 +190,7 @@ export class SqliteApprovalGateway implements ApprovalGateway {
     this.#db
       .prepare(
         `INSERT INTO approvals (id, status, data) VALUES (@id, @status, @data)
-         ON CONFLICT(id) DO UPDATE SET status = excluded.status, data = excluded.data`,
+         ON CONFLICT(id) DO UPDATE SET status = excluded.status, data = excluded.data`
       )
       .run({ id: approval.id, status: approval.status, data: safeJsonStringify(approval) });
   }
@@ -220,7 +213,7 @@ export class SqliteTransactor implements Transactor {
     const updateRun = this.#db.prepare(`UPDATE runs SET data = ? WHERE id = ?`);
     const upsertApproval = this.#db.prepare(
       `INSERT INTO approvals (id, status, data) VALUES (@id, @status, @data)
-       ON CONFLICT(id) DO UPDATE SET status = excluded.status, data = excluded.data`,
+       ON CONFLICT(id) DO UPDATE SET status = excluded.status, data = excluded.data`
     );
     const insertAudit = this.#db.prepare(`INSERT INTO audit (run_id, data) VALUES (?, ?)`);
 
@@ -240,7 +233,7 @@ export class SqliteTransactor implements Transactor {
         upsertApproval.run({
           id: c.approval.id,
           status: c.approval.status,
-          data: safeJsonStringify(c.approval),
+          data: safeJsonStringify(c.approval)
         });
       }
       for (const record of c.audit ?? []) {
@@ -278,6 +271,6 @@ export function createSqliteBackend(target: string | DB): SqliteBackend {
     approvals: new SqliteApprovalGateway(db),
     transactor: new SqliteTransactor(db),
     db,
-    close: () => db.close(),
+    close: () => db.close()
   };
 }

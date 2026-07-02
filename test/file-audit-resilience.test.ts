@@ -24,7 +24,7 @@ test("a torn final audit line does not make the whole trail unreadable", async (
     assert.equal(all.length, 2, "the two intact records are still readable");
     assert.deepEqual(
       all.map((r) => r.id),
-      ["aud-1", "aud-2"],
+      ["aud-1", "aud-2"]
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

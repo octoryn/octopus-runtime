@@ -19,7 +19,7 @@ const emailInput = s.object({
   to: s.array(s.string()),
   subject: s.string(),
   body: s.string(),
-  cc: s.optional(s.array(s.string())),
+  cc: s.optional(s.array(s.string()))
 });
 
 /** The concrete message a transport delivers. */
@@ -66,7 +66,7 @@ export function inMemoryTransport(): { transport: EmailTransport; outbox: SentEm
       seen.set(options.idempotencyKey, messageId);
       outbox.push({ ...message, messageId, idempotencyKey: options.idempotencyKey });
       return { messageId };
-    },
+    }
   };
 
   return { transport, outbox };
@@ -87,26 +87,26 @@ export function createEmailConnector(transport: EmailTransport): Connector {
           const message: EmailMessage = {
             to: input.to,
             subject: input.subject,
-            body: input.body,
+            body: input.body
           };
           if (input.cc !== undefined) message.cc = input.cc;
           return {
             preview: `Email to ${recipients} — "${input.subject}"`,
-            payload: message,
+            payload: message
           };
         },
         // SIDE-EFFECTFUL: deliver. Called only on the Autonomous path or after approval.
         async execute(rendered, ctx: ConnectorContext) {
           const message = rendered.payload as EmailMessage;
           const { messageId } = await transport.deliver(message, {
-            idempotencyKey: ctx.idempotencyKey,
+            idempotencyKey: ctx.idempotencyKey
           });
           return {
             output: { messageId },
-            effectRefs: [{ kind: "email.message", id: messageId }],
+            effectRefs: [{ kind: "email.message", id: messageId }]
           };
-        },
-      }),
-    ],
+        }
+      })
+    ]
   });
 }

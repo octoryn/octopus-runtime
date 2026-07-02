@@ -10,13 +10,7 @@ import { dirname, join } from "node:path";
  * file imports any forbidden system, so the boundary cannot erode by accident.
  */
 
-const FORBIDDEN = [
-  "octopus-blackboard",
-  "octopus-experience",
-  "signalsos",
-  "signals-os",
-  "observe",
-];
+const FORBIDDEN = ["octopus-blackboard", "octopus-experience", "signalsos", "signals-os", "observe"];
 
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 
@@ -52,9 +46,5 @@ test("the runtime declares no npm runtime dependencies", () => {
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
     dependencies?: Record<string, string>;
   };
-  assert.deepEqual(
-    pkg.dependencies ?? {},
-    {},
-    "core must stay dependency-free; found runtime dependencies",
-  );
+  assert.deepEqual(pkg.dependencies ?? {}, {}, "core must stay dependency-free; found runtime dependencies");
 });

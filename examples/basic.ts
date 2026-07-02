@@ -15,7 +15,7 @@ import {
   AutonomyLevel,
   ManualClock,
   type AutonomyLevel as AutonomyLevelType,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createEmailConnector, inMemoryTransport } from "../src/connectors/email.js";
 
@@ -32,9 +32,7 @@ const welcome = defineWorkflow<SignupPayload>({
   id: "welcome-email",
   name: "Send a welcome email on signup",
   match: matchSource("signup"),
-  conditions: [
-    { id: "has-email", test: ({ event }) => event.payload.email.includes("@") },
-  ],
+  conditions: [{ id: "has-email", test: ({ event }) => event.payload.email.includes("@") }],
   plan: ({ event }) => [
     {
       ref: "send-welcome",
@@ -44,16 +42,16 @@ const welcome = defineWorkflow<SignupPayload>({
       input: {
         to: [event.payload.email],
         subject: `Welcome, ${event.payload.name}!`,
-        body: "Thanks for signing up.",
-      },
-    },
-  ],
+        body: "Thanks for signing up."
+      }
+    }
+  ]
 });
 
 const runtime = createRuntime({
   connectors: [email],
   workflows: [welcome],
-  clock: new ManualClock(),
+  clock: new ManualClock()
 });
 
 function signup(autonomy: AutonomyLevelType): TriggerEvent<SignupPayload> {
@@ -61,23 +59,18 @@ function signup(autonomy: AutonomyLevelType): TriggerEvent<SignupPayload> {
     id: `evt-${autonomy}`,
     source: "signup",
     occurredAt: new Date("2020-01-01T00:00:00Z").toISOString(),
-    payload: { email: "ada@example.com", name: "Ada", autonomy },
+    payload: { email: "ada@example.com", name: "Ada", autonomy }
   };
 }
 
 async function main(): Promise<void> {
-  for (const level of [
-    AutonomyLevel.Observe,
-    AutonomyLevel.Shadow,
-    AutonomyLevel.Draft,
-    AutonomyLevel.Autonomous,
-  ]) {
+  for (const level of [AutonomyLevel.Observe, AutonomyLevel.Shadow, AutonomyLevel.Draft, AutonomyLevel.Autonomous]) {
     const run = await runtime.run("welcome-email", signup(level));
     const result = run.results[0];
     console.log(
       `[${level.padEnd(10)}] outcome=${result?.outcome}` +
         (result?.rendered ? ` | rendered="${result.rendered.preview}"` : "") +
-        (result?.approvalId ? ` | approval=${result.approvalId}` : ""),
+        (result?.approvalId ? ` | approval=${result.approvalId}` : "")
     );
   }
 
@@ -90,7 +83,7 @@ async function main(): Promise<void> {
     console.log(`Approving held draft: "${pending.rendered.preview}"`);
     const executed = await runtime.resolveApproval(pending.id, {
       approved: true,
-      decidedBy: "ops@example.com",
+      decidedBy: "ops@example.com"
     });
     console.log(`  -> outcome=${executed.outcome}`);
   }

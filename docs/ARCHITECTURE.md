@@ -1,4 +1,6 @@
-# Workflow Runtime — Architecture
+**English** | [简体中文](ARCHITECTURE.zh-CN.md)
+
+# Octopus Runtime — Architecture
 
 > **Mission.** How can work safely move from observation to action?
 >

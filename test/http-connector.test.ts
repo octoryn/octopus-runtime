@@ -10,7 +10,7 @@ import {
   AutonomyLevel,
   ManualClock,
   idempotencyKey,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createHttpConnector, type HttpResponse } from "../src/connectors/http.js";
 
@@ -74,11 +74,11 @@ function httpRuntime(autonomy: AutonomyLevel) {
             connectorId: "http",
             actionType: "http.request",
             requestedAutonomy: autonomy,
-            input: event.payload,
-          },
-        ],
-      }),
-    ],
+            input: event.payload
+          }
+        ]
+      })
+    ]
   });
 }
 
@@ -123,7 +123,7 @@ test("okStatuses lets a caller accept a non-2xx status", async () => {
   const runtime = httpRuntime(AutonomyLevel.Autonomous);
   const run = await runtime.run(
     "call",
-    callEvent("ok404", { method: "GET", url: `${base}/missing`, okStatuses: [404] }),
+    callEvent("ok404", { method: "GET", url: `${base}/missing`, okStatuses: [404] })
   );
   assert.equal(run.results[0]?.outcome, "executed");
 });

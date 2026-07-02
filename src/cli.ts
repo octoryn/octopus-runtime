@@ -56,18 +56,18 @@ async function demo(levelArg: string | undefined): Promise<void> {
             connectorId: "email",
             actionType: "email.send",
             requestedAutonomy: level,
-            input: { to: [event.payload.email], subject: "Welcome!", body: "Thanks for joining." },
-          },
-        ],
-      }),
-    ],
+            input: { to: [event.payload.email], subject: "Welcome!", body: "Thanks for joining." }
+          }
+        ]
+      })
+    ]
   });
 
   const run = await runtime.run("welcome-email", {
     id: "evt-1",
     source: "signup",
     occurredAt: new Date().toISOString(),
-    payload: { email: "ada@example.com" },
+    payload: { email: "ada@example.com" }
   });
 
   const audit = await runtime.read.getAuditTrail(run.id);
@@ -76,11 +76,11 @@ async function demo(levelArg: string | undefined): Promise<void> {
       {
         run,
         audit,
-        outbox,
+        outbox
       },
       null,
-      2,
-    ),
+      2
+    )
   );
 }
 

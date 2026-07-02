@@ -1,3 +1,5 @@
+**English** | [简体中文](CHANGELOG.zh-CN.md)
+
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
@@ -11,15 +13,20 @@ All notable changes to this project are documented here. The format is based on
   type. Resolving an approval now commits its status, the execution result, and
   the decision's audit records as one atomic unit. `SqliteTransactor` provides a
   real transaction; without a transactor the writes apply sequentially.
-- **HTTP connector** (`@octopus/workflow-runtime/connectors/http`) — a real,
+- **HTTP connector** (`octopus-runtime/connectors/http`) — a real,
   zero-dependency connector on the platform `fetch`, attaching an
   `Idempotency-Key` on mutating requests and failing closed on non-2xx.
 - `schema.record` for validating objects with arbitrary string keys.
+- Release engineering: AGPL-3.0-or-later `LICENSE`, GitHub Actions CI,
+  ESLint + Prettier, `.editorconfig`/`.nvmrc`, bilingual docs, and community
+  health files (`CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`).
 
 ### Changed
 - The external effect now runs *before and outside* the approval transaction;
   the approval flips to `approved` only when the record commits, so a crash
   mid-effect leaves the approval re-resolvable (deduped by its idempotency key).
+- Package renamed to `octopus-runtime` and licensed **AGPL-3.0-or-later**,
+  aligning with the Octoryn open-source house style. Minimum Node is now 22.
 
 ## [0.2.0] — 2026-07-02
 

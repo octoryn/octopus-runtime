@@ -19,7 +19,7 @@ export class ValidationError extends RuntimeError {
   constructor(
     message: string,
     /** Dotted path to the offending field, or `""` for the root value. */
-    readonly path: string,
+    readonly path: string
   ) {
     super(message);
   }
@@ -36,7 +36,7 @@ export class TimeoutError extends RuntimeError {
   constructor(
     message: string,
     /** Timeout in milliseconds that was exceeded. */
-    readonly timeoutMs: number,
+    readonly timeoutMs: number
   ) {
     super(message);
   }

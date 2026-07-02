@@ -7,7 +7,7 @@ import {
   matchSource,
   AutonomyLevel,
   ManualClock,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createEmailConnector, inMemoryTransport } from "../src/connectors/email.js";
 import { probeConnector, singleActionWorkflow, testEvent, makeRuntime } from "./helpers.js";
@@ -16,7 +16,7 @@ test("the same event id is processed once, even across repeated dispatch", async
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   const [first] = await runtime.dispatch(testEvent());
@@ -31,7 +31,7 @@ test("concurrent duplicate dispatch coalesces to a single run and one effect", a
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   // Fire the same event twice concurrently — the classic double-webhook race.
@@ -46,7 +46,7 @@ test("a distinct event id is a distinct run", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   const a = await runtime.run("wf", { ...testEvent(), id: "a" });
@@ -76,11 +76,11 @@ test("effect-level idempotency holds even when ingestion dedup is bypassed", asy
               connectorId: "email",
               actionType: "email.send",
               requestedAutonomy: AutonomyLevel.Autonomous,
-              input: { to: [event.payload.email], subject: "Welcome", body: "Hi" },
-            },
-          ],
-        }),
-      ],
+              input: { to: [event.payload.email], subject: "Welcome", body: "Hi" }
+            }
+          ]
+        })
+      ]
     });
   }
 
@@ -88,7 +88,7 @@ test("effect-level idempotency holds even when ingestion dedup is bypassed", asy
     id: "hook-1",
     source: "signup",
     occurredAt: "2020-01-01T00:00:00.000Z",
-    payload: { email: "ada@example.com" },
+    payload: { email: "ada@example.com" }
   };
 
   await worker().run("welcome", event);

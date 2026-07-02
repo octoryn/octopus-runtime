@@ -6,10 +6,7 @@ import { probeConnector, singleActionWorkflow, testEvent, makeRuntime } from "./
 
 test("Draft renders and creates a pending approval but does not execute", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   const result = run.results[0];
@@ -26,10 +23,7 @@ test("Draft renders and creates a pending approval but does not execute", async 
 
 test("approving a draft executes exactly once", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   const approvalId = run.results[0]?.approvalId;
@@ -38,7 +32,7 @@ test("approving a draft executes exactly once", async () => {
 
   const executed = await runtime.resolveApproval(approvalId, {
     approved: true,
-    decidedBy: "ops@example.com",
+    decidedBy: "ops@example.com"
   });
 
   assert.equal(executed.outcome, "executed");
@@ -55,10 +49,7 @@ test("approving a draft executes exactly once", async () => {
 
 test("rejecting a draft never executes", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   const approvalId = run.results[0]?.approvalId;
@@ -67,7 +58,7 @@ test("rejecting a draft never executes", async () => {
   const rejected = await runtime.resolveApproval(approvalId, {
     approved: false,
     decidedBy: "ops@example.com",
-    note: "not now",
+    note: "not now"
   });
 
   assert.equal(rejected.outcome, "rejected");
@@ -80,10 +71,7 @@ test("rejecting a draft never executes", async () => {
 
 test("an approval cannot be resolved twice", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   const approvalId = run.results[0]?.approvalId as string;
@@ -92,17 +80,14 @@ test("an approval cannot be resolved twice", async () => {
 
   await assert.rejects(
     () => runtime.resolveApproval(approvalId, { approved: true, decidedBy: "b" }),
-    /already approved/,
+    /already approved/
   );
   assert.equal(probe.executeCalls, 1, "a second resolve must not execute again");
 });
 
 test("concurrent resolutions of the same approval execute at most once", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]);
 
   const run = await runtime.run("wf", testEvent());
   const approvalId = run.results[0]?.approvalId as string;
@@ -110,7 +95,7 @@ test("concurrent resolutions of the same approval execute at most once", async (
   // Fire two resolutions concurrently; exactly one must win.
   const settled = await Promise.allSettled([
     runtime.resolveApproval(approvalId, { approved: true, decidedBy: "a" }),
-    runtime.resolveApproval(approvalId, { approved: true, decidedBy: "b" }),
+    runtime.resolveApproval(approvalId, { approved: true, decidedBy: "b" })
   ]);
 
   const fulfilled = settled.filter((s) => s.status === "fulfilled");
@@ -125,9 +110,9 @@ test("requireApproval downgrades Autonomous to a Draft approval", async () => {
     [
       singleActionWorkflow({
         requestedAutonomy: AutonomyLevel.Autonomous,
-        policies: [{ id: "needs-approval", evaluate: () => ({ requireApproval: true }) }],
-      }),
-    ],
+        policies: [{ id: "needs-approval", evaluate: () => ({ requireApproval: true }) }]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());

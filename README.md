@@ -1,4 +1,11 @@
-# Workflow Runtime
+**English** | [简体中文](README.zh-CN.md)
+
+# Octopus Runtime
+
+[![CI](https://github.com/octoryn/octopus-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/octoryn/octopus-runtime/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/octoryn/octopus-runtime?sort=semver)](https://github.com/octoryn/octopus-runtime/releases/latest)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
 
 **A standalone, governed execution runtime.** It answers one question:
 
@@ -36,10 +43,10 @@ the system safer.
 ## Install
 
 ```bash
-npm install @octopus/workflow-runtime
+npm install octopus-runtime
 ```
 
-Requires Node ≥ 20. The core has **zero runtime dependencies**.
+Requires Node ≥ 22. The core has **zero runtime dependencies**.
 
 ## Quickstart
 
@@ -49,8 +56,8 @@ import {
   defineWorkflow,
   matchSource,
   AutonomyLevel,
-} from "@octopus/workflow-runtime";
-import { createEmailConnector, inMemoryTransport } from "@octopus/workflow-runtime/connectors/email";
+} from "octopus-runtime";
+import { createEmailConnector, inMemoryTransport } from "octopus-runtime/connectors/email";
 
 const { transport, outbox } = inMemoryTransport();
 
@@ -91,7 +98,7 @@ Run the bundled example and CLI:
 
 ```bash
 npm run example
-npx workflow-runtime demo autonomous   # or: observe | shadow | draft
+npx octopus-runtime demo autonomous   # or: observe | shadow | draft
 ```
 
 ## Writing a connector
@@ -101,7 +108,7 @@ A connector is stateless and isolated. Each action splits into a **pure
 mechanism. You write both once; the runtime decides which runs.
 
 ```ts
-import { defineConnector, defineAction, schema as s } from "@octopus/workflow-runtime";
+import { defineConnector, defineAction, schema as s } from "octopus-runtime";
 
 export const slack = defineConnector({
   id: "slack",
@@ -132,7 +139,7 @@ not tied to the built-in validator.
 
 Two connectors ship in the box: an in-memory `email` (for examples/tests) and a
 real, zero-dependency **`http`** connector on the platform `fetch` —
-`@octopus/workflow-runtime/connectors/http`. The HTTP connector attaches an
+`octopus-runtime/connectors/http`. The HTTP connector attaches an
 `Idempotency-Key` derived from the runtime's stable idempotency key on mutating
 requests, and fails closed on non-2xx responses.
 
@@ -177,7 +184,7 @@ delays, and slow connectors, swap in the durable file backend and set two
 options — no code changes to workflows or connectors:
 
 ```ts
-import { createRuntime, createFileBackend } from "@octopus/workflow-runtime";
+import { createRuntime, createFileBackend } from "octopus-runtime";
 
 const runtime = createRuntime({
   ...createFileBackend("./data"),   // durable Store + AuditSink + ApprovalGateway
@@ -199,10 +206,10 @@ Two durable backends ship in the box:
   exist per event, even across processes (effect-level exactly-once still relies
   on the connector idempotency key). Requires the optional peer dependency
   `better-sqlite3` (`npm i better-sqlite3`); import it from
-  `@octopus/workflow-runtime/adapters/sqlite`. The core never loads it.
+  `octopus-runtime/adapters/sqlite`. The core never loads it.
 
   ```ts
-  import { createSqliteBackend } from "@octopus/workflow-runtime/adapters/sqlite";
+  import { createSqliteBackend } from "octopus-runtime/adapters/sqlite";
   const backend = createSqliteBackend("./runtime.db");
   const runtime = createRuntime({ ...backend, connectors, workflows });
   ```

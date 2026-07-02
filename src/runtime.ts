@@ -8,14 +8,7 @@
  * ```
  */
 
-import type {
-  Clock,
-  Store,
-  AuditSink,
-  ApprovalGateway,
-  SecretProvider,
-  Transactor,
-} from "./ports.js";
+import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor } from "./ports.js";
 import type { Connector } from "./connector.js";
 import { ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
@@ -29,7 +22,7 @@ import {
   MemoryAuditSink,
   MemoryApprovalGateway,
   SystemClock,
-  StaticSecretProvider,
+  StaticSecretProvider
 } from "./adapters/index.js";
 
 /** Options for constructing a {@link Runtime}. All ports default to in-memory. */
@@ -89,7 +82,7 @@ export class Runtime {
       audit,
       approvals,
       secrets,
-      registry: this.#registry,
+      registry: this.#registry
     };
     if (options.transactor !== undefined) {
       engineDeps.transactor = options.transactor;

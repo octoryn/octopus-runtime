@@ -44,7 +44,7 @@ export interface ConditionResult {
  */
 export function evaluateConditions<Payload>(
   conditions: readonly Condition<Payload>[],
-  ctx: ConditionContext<Payload>,
+  ctx: ConditionContext<Payload>
 ): ConditionResult {
   const evaluations: ConditionEvaluation[] = [];
   for (const condition of conditions) {
@@ -56,7 +56,7 @@ export function evaluateConditions<Payload>(
       evaluations.push({
         conditionId: condition.id,
         passed: false,
-        error: toErrorInfo(err),
+        error: toErrorInfo(err)
       });
       return { passed: false, evaluations };
     }

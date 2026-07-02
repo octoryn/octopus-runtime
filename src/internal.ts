@@ -68,11 +68,7 @@ const ENGINE_TIMEOUT = Symbol("engineTimeout");
 
 /** True only for a timeout the engine itself imposed via {@link withTimeout}. */
 export function isEngineTimeout(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as Record<symbol, unknown>)[ENGINE_TIMEOUT] === true
-  );
+  return typeof err === "object" && err !== null && (err as Record<symbol, unknown>)[ENGINE_TIMEOUT] === true;
 }
 
 /**
@@ -103,7 +99,7 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: st
       (err: unknown) => {
         clearTimeout(timer);
         reject(err as Error);
-      },
+      }
     );
   });
 }

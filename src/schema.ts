@@ -40,7 +40,7 @@ export function string(): Schema<string> {
     parse(value, path = "") {
       if (typeof value !== "string") fail(path as string, "must be a string");
       return value as string;
-    },
+    }
   } as Schema<string>;
 }
 
@@ -52,7 +52,7 @@ export function number(): Schema<number> {
         fail(path as string, "must be a finite number");
       }
       return value as number;
-    },
+    }
   } as Schema<number>;
 }
 
@@ -62,7 +62,7 @@ export function boolean(): Schema<boolean> {
     parse(value, path = "") {
       if (typeof value !== "boolean") fail(path as string, "must be a boolean");
       return value as boolean;
-    },
+    }
   } as Schema<boolean>;
 }
 
@@ -74,7 +74,7 @@ export function enums<const T extends readonly string[]>(...values: T): Schema<T
         fail(path as string, `must be one of: ${values.join(", ")}`);
       }
       return value as T[number];
-    },
+    }
   } as Schema<T[number]>;
 }
 
@@ -84,9 +84,9 @@ export function array<T>(item: Schema<T>): Schema<T[]> {
     parse(value, path = "") {
       if (!Array.isArray(value)) fail(path as string, "must be an array");
       return (value as unknown[]).map((entry, i) =>
-        (item as SchemaWithPath<T>).parse(entry, joinPath(path as string, `[${i}]`)),
+        (item as SchemaWithPath<T>).parse(entry, joinPath(path as string, `[${i}]`))
       );
-    },
+    }
   } as Schema<T[]>;
 }
 
@@ -97,7 +97,7 @@ export function optional<T>(inner: Schema<T>): Schema<T | undefined> {
     parse(value, path = "") {
       if (value === undefined) return undefined;
       return (inner as SchemaWithPath<T>).parse(value, path as string);
-    },
+    }
   } as OptionalSchema<T>;
   return schema;
 }
@@ -124,7 +124,7 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOutput<S>> {
         if (parsed !== undefined) result[key] = parsed;
       }
       return result as ObjectOutput<S>;
-    },
+    }
   } as Schema<ObjectOutput<S>>;
 }
 
@@ -141,7 +141,7 @@ export function record<V>(value: Schema<V>): Schema<Record<string, V>> {
         result[key] = (value as SchemaWithPath<V>).parse(source[key], joinPath(path as string, key));
       }
       return result;
-    },
+    }
   } as Schema<Record<string, V>>;
 }
 

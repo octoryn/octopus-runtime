@@ -1,20 +1,20 @@
 {
-  "name": "@octopus/workflow-runtime",
+  "name": "octopus-runtime",
   "version": "0.3.0",
   "description": "Standalone governed execution runtime. Moves work from trigger to result across autonomy, policy, approval, connector, execution, and audit boundaries.",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "author": "Ran Tao",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-org/workflow-runtime.git"
+    "url": "git+https://github.com/octoryn/octopus-runtime.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/workflow-runtime/issues"
+    "url": "https://github.com/octoryn/octopus-runtime/issues"
   },
-  "homepage": "https://github.com/your-org/workflow-runtime#readme",
+  "homepage": "https://github.com/octoryn/octopus-runtime#readme",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -39,20 +39,27 @@
   "files": [
     "dist",
     "README.md",
+    "README.zh-CN.md",
     "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
     "LICENSE",
     "docs"
   ],
   "bin": {
-    "workflow-runtime": "./dist/cli.js"
+    "octopus-runtime": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --import tsx --test test/*.test.ts",
+    "coverage": "node --import tsx --test --experimental-test-coverage test/*.test.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"examples/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"examples/**/*.ts\"",
     "example": "tsx examples/basic.ts",
     "cli": "tsx src/cli.ts",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build"
   },
   "keywords": [
     "workflow",
@@ -71,10 +78,14 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.20.0",
     "better-sqlite3": "^11.10.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.20.0"
   }
 }

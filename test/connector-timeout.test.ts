@@ -10,7 +10,7 @@ import {
   AutonomyLevel,
   TimeoutError,
   schema as s,
-  type Connector,
+  type Connector
 } from "../src/index.js";
 import { testEvent } from "./helpers.js";
 
@@ -24,15 +24,13 @@ function slowConnector(opts: { renderMs?: number; executeMs?: number }): Connect
         type: "slow.act",
         input: s.object({}),
         render: () =>
-          new Promise((resolve) =>
-            setTimeout(() => resolve({ preview: "slow", payload: {} }), opts.renderMs ?? 0),
-          ),
+          new Promise((resolve) => setTimeout(() => resolve({ preview: "slow", payload: {} }), opts.renderMs ?? 0)),
         execute: () =>
           new Promise((resolve) =>
-            setTimeout(() => resolve({ output: { ok: true }, effectRefs: [] }), opts.executeMs ?? 0),
-          ),
-      }),
-    ],
+            setTimeout(() => resolve({ output: { ok: true }, effectRefs: [] }), opts.executeMs ?? 0)
+          )
+      })
+    ]
   });
 }
 
@@ -50,11 +48,11 @@ function slowRuntime(connector: Connector, timeoutMs: number) {
             connectorId: "slow",
             actionType: "slow.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: {},
-          },
-        ],
-      }),
-    ],
+            input: {}
+          }
+        ]
+      })
+    ]
   });
 }
 
@@ -96,9 +94,9 @@ test("a connector throwing its own TimeoutError is not mislabeled as a runtime t
         render: () => ({ preview: "x", payload: {} }),
         execute: () => {
           throw new TimeoutError("downstream HTTP timed out", 1234);
-        },
-      }),
-    ],
+        }
+      })
+    ]
   });
   const runtime = createRuntime({
     connectors: [connector],
@@ -112,11 +110,11 @@ test("a connector throwing its own TimeoutError is not mislabeled as a runtime t
             connectorId: "throws",
             actionType: "throws.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: {},
-          },
-        ],
-      }),
-    ],
+            input: {}
+          }
+        ]
+      })
+    ]
   });
 
   const run = await runtime.run("wf", testEvent());
@@ -128,5 +126,8 @@ test("the timed-out audit event is recorded", async () => {
   const runtime = slowRuntime(slowConnector({ executeMs: 80 }), 20);
   const run = await runtime.run("wf", testEvent());
   const trail = await runtime.read.getAuditTrail(run.id);
-  assert.ok(trail.some((r) => r.event === "execute.timed_out"), "execute.timed_out audited");
+  assert.ok(
+    trail.some((r) => r.event === "execute.timed_out"),
+    "execute.timed_out audited"
+  );
 });

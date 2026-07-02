@@ -2,19 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { AutonomyLevel, defineConnector, defineAction, schema as s } from "../src/index.js";
-import {
-  probeConnector,
-  singleActionWorkflow,
-  planWorkflow,
-  testEvent,
-  makeRuntime,
-} from "./helpers.js";
+import { probeConnector, singleActionWorkflow, planWorkflow, testEvent, makeRuntime } from "./helpers.js";
 
 test("a throwing execute yields a failed result with the error recorded", async () => {
   const probe = probeConnector({ executeThrows: true });
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -29,7 +23,7 @@ test("a throwing render yields a failed result and never executes", async () => 
   const probe = probeConnector({ renderThrows: true });
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -52,11 +46,11 @@ test("invalid input fails closed before render", async () => {
             connectorId: "probe",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: 123 }, // schema requires a string
-          },
-        ],
-      }),
-    ],
+            input: { value: 123 } // schema requires a string
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -80,11 +74,11 @@ test("a throwing condition halts the run fail-closed", async () => {
             id: "boom",
             test: () => {
               throw new Error("condition boom");
-            },
-          },
-        ],
-      }),
-    ],
+            }
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -107,7 +101,7 @@ test("a dependent action is skipped when its dependency fails (fail-closed)", as
             connectorId: "probe",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: "a" },
+            input: { value: "a" }
           },
           {
             ref: "second",
@@ -115,11 +109,11 @@ test("a dependent action is skipped when its dependency fails (fail-closed)", as
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
             input: { value: "b" },
-            dependsOn: ["first"],
-          },
-        ],
-      }),
-    ],
+            dependsOn: ["first"]
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -144,8 +138,8 @@ test("a throwing policy fails closed to a denial without aborting the run", asyn
             evaluate: ({ action }) => {
               if (action.ref === "second") throw new Error("policy boom");
               return {};
-            },
-          },
+            }
+          }
         ],
         actions: [
           {
@@ -153,18 +147,18 @@ test("a throwing policy fails closed to a denial without aborting the run", asyn
             connectorId: "probe",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: "a" },
+            input: { value: "a" }
           },
           {
             ref: "second",
             connectorId: "probe",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: "b" },
-          },
-        ],
-      }),
-    ],
+            input: { value: "b" }
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -192,10 +186,10 @@ test("non-cloneable execute output is sanitized so the run still persists", asyn
         // Returns a value structuredClone cannot handle (a function).
         execute: () => ({
           output: { fn: () => 42 },
-          effectRefs: [{ kind: "weird.effect", id: "w1" }],
-        }),
-      }),
-    ],
+          effectRefs: [{ kind: "weird.effect", id: "w1" }]
+        })
+      })
+    ]
   });
 
   const runtime = makeRuntime(
@@ -208,11 +202,11 @@ test("non-cloneable execute output is sanitized so the run still persists", asyn
             connectorId: "weird",
             actionType: "weird.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: {},
-          },
-        ],
-      }),
-    ],
+            input: {}
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -220,7 +214,7 @@ test("non-cloneable execute output is sanitized so the run still persists", asyn
   assert.equal(run.results[0]?.outcome, "executed");
   assert.deepEqual(run.results[0]?.output, {
     unrecordable: true,
-    reason: "execute output is not structured-cloneable",
+    reason: "execute output is not structured-cloneable"
   });
   // effectRefs (plain data) survive, and the run is retrievable.
   assert.equal(run.results[0]?.effectRefs?.[0]?.id, "w1");
@@ -235,7 +229,7 @@ test("an independent sibling still runs after another action fails", async () =>
   // Give the failing connector a different id so both can register.
   const failingConnector = {
     ...failing.connector,
-    id: "probe-fail",
+    id: "probe-fail"
   };
 
   const runtime = makeRuntime(
@@ -248,18 +242,18 @@ test("an independent sibling still runs after another action fails", async () =>
             connectorId: "probe-fail",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: "x" },
+            input: { value: "x" }
           },
           {
             ref: "ok",
             connectorId: "probe",
             actionType: "probe.act",
             requestedAutonomy: AutonomyLevel.Autonomous,
-            input: { value: "y" },
-          },
-        ],
-      }),
-    ],
+            input: { value: "y" }
+          }
+        ]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());

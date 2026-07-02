@@ -15,7 +15,7 @@ import {
   ManualClock,
   schema as s,
   type Connector,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createSqliteBackend } from "../src/adapters/sqlite.js";
 import { safeJsonStringify } from "../src/internal.js";
@@ -33,9 +33,9 @@ function moneyConnector(counter: { calls: number }): Connector {
         execute: () => {
           counter.calls += 1;
           return { output: { amountCents: 500n }, effectRefs: [{ kind: "charge", id: "c1" }] };
-        },
-      }),
-    ],
+        }
+      })
+    ]
   });
 }
 
@@ -49,9 +49,9 @@ function chargeWorkflow(autonomy: AutonomyLevel) {
         connectorId: "money",
         actionType: "money.charge",
         requestedAutonomy: autonomy,
-        input: {},
-      },
-    ],
+        input: {}
+      }
+    ]
   });
 }
 
@@ -59,7 +59,7 @@ const order: TriggerEvent = {
   id: "order-1",
   source: "order",
   occurredAt: "2020-01-01T00:00:00.000Z",
-  payload: {},
+  payload: {}
 };
 
 test("safeJsonStringify never throws and encodes BigInt as a string", () => {
@@ -80,7 +80,7 @@ test("SQLite: a BigInt in execute output does not orphan the run or re-fire on r
       approvals: backend.approvals,
       clock: new ManualClock(),
       connectors: [moneyConnector(counter)],
-      workflows: [chargeWorkflow(AutonomyLevel.Autonomous)],
+      workflows: [chargeWorkflow(AutonomyLevel.Autonomous)]
     });
 
     const run = await runtime.run("charge", order);
@@ -110,7 +110,7 @@ test("File store: a BigInt in execute output persists the run and dedups on rede
       ...createFileBackend(dir),
       clock: new ManualClock(),
       connectors: [moneyConnector(counter)],
-      workflows: [chargeWorkflow(AutonomyLevel.Autonomous)],
+      workflows: [chargeWorkflow(AutonomyLevel.Autonomous)]
     });
 
     const run = await runtime.run("charge", order);
@@ -135,7 +135,7 @@ test("SQLite draft→approve with BigInt output records executed, not failed", a
       approvals: backend.approvals,
       clock: new ManualClock(),
       connectors: [moneyConnector(counter)],
-      workflows: [chargeWorkflow(AutonomyLevel.Draft)],
+      workflows: [chargeWorkflow(AutonomyLevel.Draft)]
     });
 
     const run = await runtime.run("charge", order);

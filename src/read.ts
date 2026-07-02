@@ -45,9 +45,7 @@ export class ReadApi {
 
   /** The audit trail, optionally scoped to one run, in insertion order. */
   getAuditTrail(runId?: string): Promise<AuditRecord[]> {
-    return runId === undefined
-      ? this.#deps.audit.query()
-      : this.#deps.audit.query({ runId });
+    return runId === undefined ? this.#deps.audit.query() : this.#deps.audit.query({ runId });
   }
 
   /** Fetch a single approval by id. */
@@ -57,9 +55,7 @@ export class ReadApi {
 
   /** List approvals, optionally filtered by status. */
   listApprovals(status?: ApprovalStatus): Promise<Approval[]> {
-    return status === undefined
-      ? this.#deps.approvals.list()
-      : this.#deps.approvals.list({ status });
+    return status === undefined ? this.#deps.approvals.list() : this.#deps.approvals.list({ status });
   }
 
   /** Convenience: approvals still awaiting a decision. */

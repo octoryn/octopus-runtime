@@ -12,7 +12,7 @@ function ttlRuntime(ttlMs: number) {
     connectors: [probe.connector],
     workflows: [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
     clock,
-    approvalTtlMs: ttlMs,
+    approvalTtlMs: ttlMs
   });
   return { probe, clock, runtime };
 }
@@ -78,6 +78,6 @@ test("an already-expired approval cannot be resolved again", async () => {
 
   await assert.rejects(
     () => runtime.resolveApproval(approvalId, { approved: true, decidedBy: "ops" }),
-    ConfigurationError,
+    ConfigurationError
   );
 });

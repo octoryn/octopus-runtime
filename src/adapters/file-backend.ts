@@ -27,6 +27,6 @@ export function createFileBackend(dir: string): FileBackend {
   return {
     store: new FileStore(join(dir, "store")),
     audit: new FileAuditSink(join(dir, "audit")),
-    approvals: new FileApprovalGateway(join(dir, "approvals")),
+    approvals: new FileApprovalGateway(join(dir, "approvals"))
   };
 }

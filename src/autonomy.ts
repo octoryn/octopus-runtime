@@ -23,7 +23,7 @@ export const AutonomyLevel = {
   /** Prepare the effect and hold it as an approval. Execute only once approved. */
   Draft: "draft",
   /** Execute directly, subject to policy and gate checks. */
-  Autonomous: "autonomous",
+  Autonomous: "autonomous"
 } as const;
 
 export type AutonomyLevel = (typeof AutonomyLevel)[keyof typeof AutonomyLevel];
@@ -33,7 +33,7 @@ const RANK: Record<AutonomyLevel, number> = {
   [AutonomyLevel.Observe]: 0,
   [AutonomyLevel.Shadow]: 1,
   [AutonomyLevel.Draft]: 2,
-  [AutonomyLevel.Autonomous]: 3,
+  [AutonomyLevel.Autonomous]: 3
 };
 
 /** All levels, ordered most-restrictive first. */
@@ -41,7 +41,7 @@ export const ALL_AUTONOMY_LEVELS: readonly AutonomyLevel[] = [
   AutonomyLevel.Observe,
   AutonomyLevel.Shadow,
   AutonomyLevel.Draft,
-  AutonomyLevel.Autonomous,
+  AutonomyLevel.Autonomous
 ];
 
 /** Numeric rank of a level (Observe = 0 … Autonomous = 3). */
@@ -61,8 +61,5 @@ export function autonomyAtLeast(a: AutonomyLevel, b: AutonomyLevel): boolean {
 
 /** Reduce a list of levels to the most restrictive. Empty list → `Observe`. */
 export function mostRestrictive(levels: readonly AutonomyLevel[]): AutonomyLevel {
-  return levels.reduce<AutonomyLevel>(
-    (acc, level) => minAutonomy(acc, level),
-    AutonomyLevel.Autonomous,
-  );
+  return levels.reduce<AutonomyLevel>((acc, level) => minAutonomy(acc, level), AutonomyLevel.Autonomous);
 }

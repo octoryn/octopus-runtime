@@ -81,17 +81,11 @@ export function defineAction<S extends Schema<unknown>>(def: {
 }
 
 /** Define a connector, validating that its action types are unique. */
-export function defineConnector(def: {
-  id: string;
-  version: string;
-  actions: ActionDefinition[];
-}): Connector {
+export function defineConnector(def: { id: string; version: string; actions: ActionDefinition[] }): Connector {
   const seen = new Set<string>();
   for (const action of def.actions) {
     if (seen.has(action.type)) {
-      throw new ConfigurationError(
-        `connector "${def.id}" declares duplicate action type "${action.type}"`,
-      );
+      throw new ConfigurationError(`connector "${def.id}" declares duplicate action type "${action.type}"`);
     }
     seen.add(action.type);
   }
@@ -129,9 +123,7 @@ export class ConnectorRegistry {
       if (!this.#connectors.has(connectorId)) {
         throw new ConfigurationError(`unknown connector "${connectorId}"`);
       }
-      throw new ConfigurationError(
-        `connector "${connectorId}" has no action "${actionType}"`,
-      );
+      throw new ConfigurationError(`connector "${connectorId}" has no action "${actionType}"`);
     }
     return action;
   }

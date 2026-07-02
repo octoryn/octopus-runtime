@@ -12,7 +12,7 @@ import {
   ManualClock,
   type Runtime,
   type RunRecord,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createSqliteBackend, SqliteStore, openDatabase } from "../src/adapters/sqlite.js";
 import { createEmailConnector, type EmailMessage, type SentEmail } from "../src/connectors/email.js";
@@ -38,7 +38,7 @@ function sharedTransport(outbox: SentEmail[]) {
       seen.set(options.idempotencyKey, messageId);
       outbox.push({ ...message, messageId, idempotencyKey: options.idempotencyKey });
       return { messageId };
-    },
+    }
   };
 }
 
@@ -47,16 +47,11 @@ function signup(id: string): TriggerEvent {
     id,
     source: "signup",
     occurredAt: "2020-01-01T00:00:00.000Z",
-    payload: { email: "ada@example.com" },
+    payload: { email: "ada@example.com" }
   };
 }
 
-function runtimeOn(
-  path: string,
-  autonomy: AutonomyLevel,
-  outbox: SentEmail[],
-  transport = sharedTransport(outbox),
-) {
+function runtimeOn(path: string, autonomy: AutonomyLevel, outbox: SentEmail[], transport = sharedTransport(outbox)) {
   const backend = createSqliteBackend(path);
   const runtime: Runtime = createRuntime({
     store: backend.store,
@@ -75,11 +70,11 @@ function runtimeOn(
             connectorId: "email",
             actionType: "email.send",
             requestedAutonomy: autonomy,
-            input: { to: [event.payload.email], subject: "Welcome", body: "Hi" },
-          },
-        ],
-      }),
-    ],
+            input: { to: [event.payload.email], subject: "Welcome", body: "Hi" }
+          }
+        ]
+      })
+    ]
   });
   return { runtime, close: backend.close };
 }
@@ -95,7 +90,7 @@ test("run and dedup key are one atomic row — a second run for the same event i
       status: "completed",
       results: [],
       startedAt: "2020-01-01T00:00:00.000Z",
-      finishedAt: "2020-01-01T00:00:00.000Z",
+      finishedAt: "2020-01-01T00:00:00.000Z"
     };
 
     await store.saveRun({ ...base, id: "run-1" });
@@ -128,7 +123,7 @@ test("a Draft approval survives a restart and executes (SQLite)", async () => {
 
     const executed = await second.runtime.resolveApproval(approvalId, {
       approved: true,
-      decidedBy: "ops",
+      decidedBy: "ops"
     });
     assert.equal(executed.outcome, "executed");
     assert.equal(outbox.length, 1);
@@ -166,7 +161,7 @@ test("two runtimes sharing one database can't double-run the same event", async 
 
     const [ra, rb] = await Promise.all([
       a.runtime.run("welcome", signup("race-1")),
-      b.runtime.run("welcome", signup("race-1")),
+      b.runtime.run("welcome", signup("race-1"))
     ]);
 
     assert.equal(ra.id, rb.id, "both resolve to the one canonical run");
@@ -194,7 +189,7 @@ test("runs and audit persist across restart (SQLite)", async () => {
     assert.deepEqual(
       trail.map((r) => r.event).slice(0, 3),
       ["trigger.received", "condition.evaluated", "plan.created"],
-      "audit order preserved by seq",
+      "audit order preserved by seq"
     );
     second.close();
   });
@@ -222,11 +217,11 @@ test("approval TTL works over the SQLite backend", async () => {
               connectorId: "email",
               actionType: "email.send",
               requestedAutonomy: AutonomyLevel.Draft,
-              input: { to: [event.payload.email], subject: "Welcome", body: "Hi" },
-            },
-          ],
-        }),
-      ],
+              input: { to: [event.payload.email], subject: "Welcome", body: "Hi" }
+            }
+          ]
+        })
+      ]
     });
 
     await runtime.run("welcome", signup("evt-1"));

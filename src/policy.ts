@@ -79,7 +79,7 @@ export interface PolicyDecision {
  */
 export async function decide<Payload>(
   policies: readonly Policy<Payload>[],
-  ctx: PolicyContext<Payload>,
+  ctx: PolicyContext<Payload>
 ): Promise<PolicyDecision> {
   const requested = ctx.action.requestedAutonomy;
   let effective = requested;
@@ -131,7 +131,7 @@ export async function decide<Payload>(
     effectiveAutonomy: effective,
     requiresApproval,
     constraints,
-    appliedPolicies,
+    appliedPolicies
   };
   if (denied !== undefined) decision.denied = denied;
   return decision;

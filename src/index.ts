@@ -25,7 +25,7 @@ export {
   autonomyRank,
   autonomyAtLeast,
   minAutonomy,
-  mostRestrictive,
+  mostRestrictive
 } from "./autonomy.js";
 
 // --- Workflow / conditions / policy / gate -------------------------------
@@ -46,15 +46,7 @@ export type { Connector, ActionDefinition, ConnectorContext, ExecuteOutcome } fr
 export type { Approval, ApprovalDecision, ApprovalStatus } from "./approvals.js";
 
 // --- Ports ---------------------------------------------------------------
-export type {
-  Clock,
-  Store,
-  AuditSink,
-  ApprovalGateway,
-  SecretProvider,
-  Transactor,
-  StateChange,
-} from "./ports.js";
+export type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor, StateChange } from "./ports.js";
 
 // --- Adapters (in-memory / local defaults) -------------------------------
 export {
@@ -68,7 +60,7 @@ export {
   FileStore,
   FileAuditSink,
   FileApprovalGateway,
-  createFileBackend,
+  createFileBackend
 } from "./adapters/index.js";
 export type { FileBackend } from "./adapters/index.js";
 
@@ -85,7 +77,7 @@ export type {
   RunStatus,
   RunRecord,
   Boundary,
-  AuditRecord,
+  AuditRecord
 } from "./types.js";
 
 // --- Ids -----------------------------------------------------------------

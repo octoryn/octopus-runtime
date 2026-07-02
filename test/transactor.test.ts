@@ -6,14 +6,12 @@ import { join } from "node:path";
 
 import {
   createRuntime,
-  defineWorkflow,
-  matchSource,
   AutonomyLevel,
   ManualClock,
   type Approval,
   type ExecutionResult,
   type RunRecord,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createSqliteBackend, SqliteStore, SqliteTransactor, openDatabase } from "../src/adapters/sqlite.js";
 import { probeConnector, singleActionWorkflow } from "./helpers.js";
@@ -31,7 +29,7 @@ const draftEvent: TriggerEvent = {
   id: "evt-1",
   source: "test",
   occurredAt: "2020-01-01T00:00:00.000Z",
-  payload: {},
+  payload: {}
 };
 
 test("resolving an approval commits approval + result consistently (SQLite transactor)", async () => {
@@ -45,7 +43,7 @@ test("resolving an approval commits approval + result consistently (SQLite trans
       transactor: backend.transactor,
       clock: new ManualClock(),
       connectors: [probe.connector],
-      workflows: [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
+      workflows: [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })]
     });
 
     const run = await runtime.run("wf", draftEvent);
@@ -84,7 +82,7 @@ test("a failing commit rolls back entirely — no partial write", async () => {
       effectiveAutonomy: AutonomyLevel.Draft,
       outcome: "drafted",
       startedAt: "2020-01-01T00:00:00.000Z",
-      finishedAt: "2020-01-01T00:00:00.000Z",
+      finishedAt: "2020-01-01T00:00:00.000Z"
     };
     const run: RunRecord = {
       id: "run-1",
@@ -93,7 +91,7 @@ test("a failing commit rolls back entirely — no partial write", async () => {
       status: "completed",
       results: [drafted],
       startedAt: "2020-01-01T00:00:00.000Z",
-      finishedAt: "2020-01-01T00:00:00.000Z",
+      finishedAt: "2020-01-01T00:00:00.000Z"
     };
     await store.saveRun(run);
 
@@ -111,7 +109,7 @@ test("a failing commit rolls back entirely — no partial write", async () => {
       requestedAutonomy: AutonomyLevel.Draft,
       idempotencyKey: "k",
       rendered: { preview: "x", payload: {} },
-      createdAt: "2020-01-01T00:00:00.000Z",
+      createdAt: "2020-01-01T00:00:00.000Z"
     } as Approval;
 
     await assert.rejects(() => transactor.commit({ result: executed, approval: badApproval }));

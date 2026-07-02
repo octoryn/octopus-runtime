@@ -36,9 +36,7 @@ export interface Workflow<Payload = unknown> {
 }
 
 /** Define a workflow with payload-type inference across its members. */
-export function defineWorkflow<Payload = unknown>(
-  workflow: Workflow<Payload>,
-): Workflow<Payload> {
+export function defineWorkflow<Payload = unknown>(workflow: Workflow<Payload>): Workflow<Payload> {
   return workflow;
 }
 
@@ -57,15 +55,13 @@ export function validatePlan(workflowId: string, actions: readonly PlannedAction
   const seen = new Set<string>();
   for (const action of actions) {
     if (seen.has(action.ref)) {
-      throw new ConfigurationError(
-        `workflow "${workflowId}" planned duplicate action ref "${action.ref}"`,
-      );
+      throw new ConfigurationError(`workflow "${workflowId}" planned duplicate action ref "${action.ref}"`);
     }
     for (const dep of action.dependsOn ?? []) {
       if (!seen.has(dep)) {
         throw new ConfigurationError(
           `workflow "${workflowId}" action "${action.ref}" depends on "${dep}", ` +
-            `which must appear earlier in a sequential plan`,
+            `which must appear earlier in a sequential plan`
         );
       }
     }

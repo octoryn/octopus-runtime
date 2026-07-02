@@ -12,7 +12,7 @@ import {
   AutonomyLevel,
   ManualClock,
   type Runtime,
-  type TriggerEvent,
+  type TriggerEvent
 } from "../src/index.js";
 import { createEmailConnector, type EmailMessage, type SentEmail } from "../src/connectors/email.js";
 
@@ -42,7 +42,7 @@ function sharedTransport(outbox: SentEmail[]) {
       seen.set(options.idempotencyKey, messageId);
       outbox.push({ ...message, messageId, idempotencyKey: options.idempotencyKey });
       return { messageId };
-    },
+    }
   };
 }
 
@@ -51,7 +51,7 @@ function signup(id: string): TriggerEvent {
     id,
     source: "signup",
     occurredAt: "2020-01-01T00:00:00.000Z",
-    payload: { email: "ada@example.com" },
+    payload: { email: "ada@example.com" }
   };
 }
 
@@ -71,11 +71,11 @@ function durableRuntime(dir: string, autonomy: AutonomyLevel, outbox: SentEmail[
             connectorId: "email",
             actionType: "email.send",
             requestedAutonomy: autonomy,
-            input: { to: [event.payload.email], subject: "Welcome", body: "Hi" },
-          },
-        ],
-      }),
-    ],
+            input: { to: [event.payload.email], subject: "Welcome", body: "Hi" }
+          }
+        ]
+      })
+    ]
   });
 }
 
@@ -98,7 +98,7 @@ test("a Draft approval survives a process restart and then executes", async () =
 
     const executed = await second.resolveApproval(approvalId, {
       approved: true,
-      decidedBy: "ops",
+      decidedBy: "ops"
     });
     assert.equal(executed.outcome, "executed");
     assert.equal(outbox.length, 1, "approval after restart delivered the email");
@@ -118,7 +118,10 @@ test("runs and audit trail are readable after restart", async () => {
     assert.equal(reloaded?.results[0]?.outcome, "executed");
 
     const trail = await second.read.getAuditTrail(run.id);
-    assert.ok(trail.some((r) => r.event === "execute.succeeded"), "audit persisted");
+    assert.ok(
+      trail.some((r) => r.event === "execute.succeeded"),
+      "audit persisted"
+    );
   });
 });
 
@@ -137,6 +140,9 @@ test("a redelivered event does not run the workflow twice (dedup across restart)
     assert.equal(outbox.length, 1, "the effect fired exactly once");
 
     const trail = await second.read.getAuditTrail(runA.id);
-    assert.ok(trail.some((r) => r.event === "trigger.deduplicated"), "dedup audited");
+    assert.ok(
+      trail.some((r) => r.event === "trigger.deduplicated"),
+      "dedup audited"
+    );
   });
 });

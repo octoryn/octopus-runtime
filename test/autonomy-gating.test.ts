@@ -6,10 +6,7 @@ import { probeConnector, singleActionWorkflow, testEvent, makeRuntime } from "./
 
 test("Observe records nothing: no render, no execute", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Observe })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Observe })]);
 
   const run = await runtime.run("wf", testEvent());
   const result = run.results[0];
@@ -24,7 +21,7 @@ test("Shadow renders a prediction but never executes", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow, value: "hi" })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow, value: "hi" })]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -40,7 +37,7 @@ test("Autonomous renders and executes", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(
     [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Autonomous })]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -55,10 +52,7 @@ test("Autonomous renders and executes", async () => {
 
 test("effectiveAutonomy on the result reflects the applied level", async () => {
   const probe = probeConnector();
-  const runtime = makeRuntime(
-    [probe.connector],
-    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow })],
-  );
+  const runtime = makeRuntime([probe.connector], [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Shadow })]);
 
   const run = await runtime.run("wf", testEvent());
   assert.equal(run.results[0]?.effectiveAutonomy, AutonomyLevel.Shadow);
@@ -72,9 +66,9 @@ test("a policy denial stops before render or execute", async () => {
     [
       singleActionWorkflow({
         requestedAutonomy: AutonomyLevel.Autonomous,
-        policies: [{ id: "block", evaluate: () => ({ deny: "blocked" }) }],
-      }),
-    ],
+        policies: [{ id: "block", evaluate: () => ({ deny: "blocked" }) }]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());
@@ -93,9 +87,9 @@ test("a policy capping Autonomous to Shadow prevents execution", async () => {
     [
       singleActionWorkflow({
         requestedAutonomy: AutonomyLevel.Autonomous,
-        policies: [{ id: "cap", evaluate: () => ({ cap: AutonomyLevel.Shadow }) }],
-      }),
-    ],
+        policies: [{ id: "cap", evaluate: () => ({ cap: AutonomyLevel.Shadow }) }]
+      })
+    ]
   );
 
   const run = await runtime.run("wf", testEvent());

@@ -35,7 +35,7 @@ const httpInput = s.object({
   /** Raw request body (already serialized, e.g. a JSON string). */
   body: s.optional(s.string()),
   /** Status codes treated as success. Default: any 2xx. */
-  okStatuses: s.optional(s.array(s.number())),
+  okStatuses: s.optional(s.array(s.number()))
 });
 
 /** The normalized request produced by `render`. */
@@ -90,7 +90,7 @@ export function createHttpConnector(options: { fetch?: FetchLike; timeoutMs?: nu
           const request: HttpRequest = {
             method: input.method,
             url: input.url,
-            headers: input.headers ?? {},
+            headers: input.headers ?? {}
           };
           if (input.body !== undefined) request.body = input.body;
           if (input.okStatuses !== undefined) request.okStatuses = input.okStatuses;
@@ -125,10 +125,10 @@ export function createHttpConnector(options: { fetch?: FetchLike; timeoutMs?: nu
           const response: HttpResponse = { status: res.status, headers: responseHeaders, body };
           return {
             output: response,
-            effectRefs: [{ kind: "http.response", id: `${request.method} ${request.url}`, url: request.url }],
+            effectRefs: [{ kind: "http.response", id: `${request.method} ${request.url}`, url: request.url }]
           };
-        },
-      }),
-    ],
+        }
+      })
+    ]
   });
 }
