@@ -62,6 +62,7 @@ function runtimeOn(
     store: backend.store,
     audit: backend.audit,
     approvals: backend.approvals,
+    transactor: backend.transactor,
     clock: new ManualClock(),
     connectors: [createEmailConnector(transport)],
     workflows: [

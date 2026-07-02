@@ -8,7 +8,14 @@
  * ```
  */
 
-import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider } from "./ports.js";
+import type {
+  Clock,
+  Store,
+  AuditSink,
+  ApprovalGateway,
+  SecretProvider,
+  Transactor,
+} from "./ports.js";
 import type { Connector } from "./connector.js";
 import { ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
@@ -34,6 +41,13 @@ export interface RuntimeOptions {
   audit?: AuditSink;
   approvals?: ApprovalGateway;
   secrets?: SecretProvider;
+  /**
+   * Optional atomic-commit capability. When provided (e.g. from
+   * `createSqliteBackend`), resolving an approval commits its status, result,
+   * and audit records in one transaction. Without it, those writes are applied
+   * sequentially.
+   */
+  transactor?: Transactor;
   /**
    * Wall-clock timeout (ms) applied to each connector `render`/`execute`. A
    * timed-out call fails closed. Omit or set `<= 0` to disable.
@@ -77,6 +91,9 @@ export class Runtime {
       secrets,
       registry: this.#registry,
     };
+    if (options.transactor !== undefined) {
+      engineDeps.transactor = options.transactor;
+    }
     if (options.connectorTimeoutMs !== undefined) {
       engineDeps.connectorTimeoutMs = options.connectorTimeoutMs;
     }

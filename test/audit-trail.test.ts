@@ -86,6 +86,33 @@ test("the draft + approval flow is fully audited", async () => {
   assert.ok(events.indexOf("approval.decided") < events.lastIndexOf("execute.succeeded"));
 });
 
+test("the approval flow's audit is monotonic in `at` and logically ordered", async () => {
+  const probe = probeConnector();
+  const runtime = makeRuntime(
+    [probe.connector],
+    [singleActionWorkflow({ requestedAutonomy: AutonomyLevel.Draft })],
+  );
+
+  const run = await runtime.run("wf", testEvent());
+  const approvalId = run.results[0]?.approvalId as string;
+  await runtime.resolveApproval(approvalId, { approved: true, decidedBy: "ops" });
+
+  const trail = await runtime.read.getAuditTrail(run.id);
+
+  // `at` never goes backwards across the whole trail (incl. the resolution).
+  for (let i = 1; i < trail.length; i += 1) {
+    assert.ok(
+      (trail[i]?.at ?? "") >= (trail[i - 1]?.at ?? ""),
+      `audit at index ${i} (${trail[i]?.event}) went backwards in time`,
+    );
+  }
+
+  // The decision precedes the execution it authorized, which precedes the result.
+  const events = trail.map((r) => r.event);
+  assert.ok(events.indexOf("approval.decided") < events.indexOf("execute.succeeded"));
+  assert.ok(events.indexOf("execute.succeeded") < events.lastIndexOf("result.recorded"));
+});
+
 test("a halted run still audits the trigger and condition boundaries", async () => {
   const probe = probeConnector();
   const runtime = makeRuntime(

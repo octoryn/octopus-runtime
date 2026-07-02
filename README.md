@@ -156,6 +156,7 @@ in-memory adapter, so the runtime runs on a laptop with nothing installed:
 | `Store` | `MemoryStore` · durable `FileStore` · transactional `SqliteStore` |
 | `AuditSink` | `MemoryAuditSink` · `FileAuditSink` · `SqliteAuditSink` |
 | `ApprovalGateway` | `MemoryApprovalGateway` · `FileApprovalGateway` · `SqliteApprovalGateway` |
+| `Transactor` (optional) | — (SQLite provides `SqliteTransactor`) |
 | `Clock` | `SystemClock` (`ManualClock` for tests) |
 | `SecretProvider` | `StaticSecretProvider` / `EnvSecretProvider` |
 
@@ -188,8 +189,9 @@ Two durable backends ship in the box:
 - **`createSqliteBackend(path)`** — transactional SQLite, the production choice.
   A run and its dedup key are the *same row* under a `UNIQUE(workflow, event)`
   constraint, committed atomically — so there is **no two-write crash window**: a
-  redelivered event cannot re-run after a crash, and a duplicate run is
-  impossible even across processes. Requires the optional peer dependency
+  redelivered event cannot re-run after a crash, and at most one run *row* can
+  exist per event, even across processes (effect-level exactly-once still relies
+  on the connector idempotency key). Requires the optional peer dependency
   `better-sqlite3` (`npm i better-sqlite3`); import it from
   `@octopus/workflow-runtime/adapters/sqlite`. The core never loads it.
 
@@ -199,7 +201,19 @@ Two durable backends ship in the box:
   const runtime = createRuntime({ ...backend, connectors, workflows });
   ```
 
-What both give you:
+### Atomic state transitions (unit of work)
+
+Resolving an approval moves three pieces of durable state at once: the approval's
+status, the execution result, and the decision's audit records. With a
+`Transactor` (SQLite provides one; spread `...backend` supplies it), those commit
+in **one transaction** — a crash can't leave an approval marked `approved` with
+no recorded result. The external effect runs *first, outside* the transaction
+(it can't be rolled back); the approval flips to `approved` only when the record
+of what happened commits, so a crash mid-effect leaves it re-resolvable and the
+effect is deduped by its idempotency key. Without a transactor the same writes
+apply sequentially — correct, but not crash-atomic.
+
+What both durable backends give you:
 
 - **Survives restart.** Runs, the audit trail, and pending approvals are durable.
   A Draft created before a restart is still resolvable after it.
@@ -240,7 +254,7 @@ repository never assumes they exist.
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit
-npm test            # node --test (70 tests)
+npm test            # node --test (77 tests)
 npm run build       # emit dist/
 ```
 

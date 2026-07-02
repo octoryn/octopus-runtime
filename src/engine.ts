@@ -24,7 +24,15 @@ import type {
   RunRecord,
   TriggerEvent,
 } from "./types.js";
-import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider } from "./ports.js";
+import type {
+  Clock,
+  Store,
+  AuditSink,
+  ApprovalGateway,
+  SecretProvider,
+  Transactor,
+  StateChange,
+} from "./ports.js";
 import type { Approval, ApprovalDecision } from "./approvals.js";
 import type { ConnectorContext, ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
@@ -45,6 +53,13 @@ export interface EngineDeps {
   approvals: ApprovalGateway;
   secrets: SecretProvider;
   registry: ConnectorRegistry;
+  /**
+   * Optional atomic-commit capability. When present, multi-write state
+   * transitions (resolving an approval: status + result + audit) commit as one
+   * unit. When absent, the engine applies the writes sequentially through the
+   * individual ports.
+   */
+  transactor?: Transactor;
   /**
    * Wall-clock timeout (ms) applied to each connector `render` and `execute`.
    * A timed-out call fails closed. `undefined` or `<= 0` disables it.
@@ -404,25 +419,7 @@ export class Engine {
       return this.#expire(approval);
     }
 
-    const decidedAt = nowIso(this.#deps.clock);
-    const resolved: Approval = {
-      ...approval,
-      status: decision.approved ? "approved" : "rejected",
-      decidedAt,
-      decidedBy: decision.decidedBy,
-    };
-    if (decision.note !== undefined) resolved.note = decision.note;
-    await this.#deps.approvals.save(resolved);
-
-    const emit = this.#auditEmitter(approval.runId, approval.workflowId, approval.actionRef);
-    await emit("approval_decision", "approval.decided", {
-      approvalId,
-      approved: decision.approved,
-      decidedBy: decision.decidedBy,
-    });
-
     const prior = await this.#deps.store.getResult(approval.runId, approval.actionRef);
-    const startedAt = prior?.startedAt ?? decidedAt;
     const common = {
       runId: approval.runId,
       workflowId: approval.workflowId,
@@ -433,20 +430,29 @@ export class Engine {
       effectiveAutonomy: AutonomyLevel.Draft,
       rendered: approval.rendered,
       approvalId,
-      startedAt,
+      startedAt: prior?.startedAt ?? nowIso(this.#deps.clock),
     };
 
+    // --- Rejected: no effect. Flip the approval and record the result as one
+    //     atomic unit. ---
     if (!decision.approved) {
-      const result = this.#finishData({
-        ...common,
-        outcome: "rejected",
-        reason: "approval_rejected",
+      const result = this.#finishData({ ...common, outcome: "rejected", reason: "approval_rejected" });
+      await this.#commit({
+        approval: this.#decide(approval, "rejected", decision),
+        result,
+        audit: [
+          this.#decisionRecord(approval, { approved: false, decidedBy: decision.decidedBy }),
+          this.#resultRecord(approval, result.outcome),
+        ],
       });
-      await this.#deps.store.saveResult(result);
-      await emit("result", "result.recorded", { outcome: result.outcome });
       return result;
     }
 
+    // --- Approved: perform the effect FIRST (outside any transaction — an
+    //     external effect cannot be rolled back), then commit the decision +
+    //     result + audit as ONE atomic unit. The approval stays `pending` until
+    //     that commit, so a crash mid-effect leaves it re-resolvable and the
+    //     effect is deduped by its stable idempotencyKey. ---
     const definition = this.#deps.registry.resolve(approval.connectorId, approval.actionType);
     const cctx = this.#connectorContext(
       approval.runId,
@@ -455,15 +461,22 @@ export class Engine {
       approval.idempotencyKey,
     );
 
-    // Determine the outcome (execute), THEN persist. Persistence is deliberately
-    // outside the execute try/catch: a store error must not mislabel an effect
-    // that actually succeeded as `failed`.
+    // Build the decision + its audit record BEFORE executing, so audit `at`
+    // timestamps run in logical order: decision → execute → result. (The
+    // approval only actually flips to `approved` when the commit lands, after
+    // the effect.)
+    const resolvedApproval = this.#decide(approval, "approved", decision);
+    const audit: AuditRecord[] = [
+      this.#decisionRecord(approval, { approved: true, decidedBy: decision.decidedBy }),
+    ];
     let result: ExecutionResult;
     try {
       const outcome = await this.#withTimeout(definition.execute(approval.rendered, cctx), "execute");
-      await emit("connector_execute", "execute.succeeded", {
-        effectRefs: outcome.effectRefs ?? [],
-      });
+      audit.push(
+        this.#record("connector_execute", "execute.succeeded", approval.runId, approval.workflowId, approval.actionRef, {
+          effectRefs: outcome.effectRefs ?? [],
+        }),
+      );
       result = this.#finishData({
         ...common,
         outcome: "executed",
@@ -472,9 +485,11 @@ export class Engine {
       });
     } catch (err) {
       const timedOut = isEngineTimeout(err);
-      await emit("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", {
-        error: toErrorInfo(err),
-      });
+      audit.push(
+        this.#record("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", approval.runId, approval.workflowId, approval.actionRef, {
+          error: toErrorInfo(err),
+        }),
+      );
       result = this.#finishData({
         ...common,
         outcome: "failed",
@@ -482,9 +497,9 @@ export class Engine {
         error: toErrorInfo(err),
       });
     }
+    audit.push(this.#resultRecord(approval, result.outcome));
 
-    await this.#deps.store.saveResult(result);
-    await emit("result", "result.recorded", { outcome: result.outcome });
+    await this.#commit({ approval: resolvedApproval, result, audit });
     return result;
   }
 
@@ -561,14 +576,9 @@ export class Engine {
     return this.#deps.clock.now().getTime() >= new Date(approval.expiresAt).getTime();
   }
 
-  /** Mark an approval expired and record the fail-closed `expired` result. */
+  /** Mark an approval expired and record the fail-closed `expired` result atomically. */
   async #expire(approval: Approval): Promise<ExecutionResult> {
     const decidedAt = nowIso(this.#deps.clock);
-    await this.#deps.approvals.save({ ...approval, status: "expired", decidedAt });
-
-    const emit = this.#auditEmitter(approval.runId, approval.workflowId, approval.actionRef);
-    await emit("approval_decision", "approval.expired", { approvalId: approval.id });
-
     const prior = await this.#deps.store.getResult(approval.runId, approval.actionRef);
     const result = this.#finishData({
       runId: approval.runId,
@@ -584,9 +594,61 @@ export class Engine {
       reason: "approval_expired",
       startedAt: prior?.startedAt ?? decidedAt,
     });
-    await this.#deps.store.saveResult(result);
-    await emit("result", "result.recorded", { outcome: result.outcome });
+    await this.#commit({
+      approval: { ...approval, status: "expired", decidedAt },
+      result,
+      audit: [
+        this.#record("approval_decision", "approval.expired", approval.runId, approval.workflowId, approval.actionRef, {
+          approvalId: approval.id,
+        }),
+        this.#resultRecord(approval, result.outcome),
+      ],
+    });
     return result;
+  }
+
+  /** Commit a batch of state changes atomically if a transactor is available,
+   *  else apply them in turn through the individual ports. */
+  async #commit(change: StateChange): Promise<void> {
+    if (this.#deps.transactor) {
+      await this.#deps.transactor.commit(change);
+      return;
+    }
+    if (change.approval) await this.#deps.approvals.save(change.approval);
+    if (change.result) await this.#deps.store.saveResult(change.result);
+    for (const record of change.audit ?? []) await this.#deps.audit.append(record);
+  }
+
+  /** Produce the resolved approval for a decision (approved/rejected). */
+  #decide(
+    approval: Approval,
+    status: "approved" | "rejected",
+    decision: ApprovalDecision,
+  ): Approval {
+    const resolved: Approval = {
+      ...approval,
+      status,
+      decidedAt: nowIso(this.#deps.clock),
+      decidedBy: decision.decidedBy,
+    };
+    if (decision.note !== undefined) resolved.note = decision.note;
+    return resolved;
+  }
+
+  #decisionRecord(
+    approval: Approval,
+    detail: { approved: boolean; decidedBy: string },
+  ): AuditRecord {
+    return this.#record("approval_decision", "approval.decided", approval.runId, approval.workflowId, approval.actionRef, {
+      approvalId: approval.id,
+      ...detail,
+    });
+  }
+
+  #resultRecord(approval: Approval, outcome: string): AuditRecord {
+    return this.#record("result", "result.recorded", approval.runId, approval.workflowId, approval.actionRef, {
+      outcome,
+    });
   }
 
   /** Apply the configured connector timeout (if any) to a connector call. */
@@ -611,20 +673,33 @@ export class Engine {
   }
 
   #auditEmitter(runId: string, workflowId: string, actionRef?: string): AuditEmitter {
-    const { audit, clock } = this.#deps;
     return async (boundary, event, detail) => {
-      const record: AuditRecord = {
-        id: newId("aud"),
-        at: nowIso(clock),
-        boundary,
-        event,
-        runId,
-        workflowId,
-      };
-      if (actionRef !== undefined) record.actionRef = actionRef;
-      if (detail !== undefined) record.detail = detail;
-      await audit.append(record);
+      await this.#deps.audit.append(
+        this.#record(boundary, event, runId, workflowId, actionRef, detail),
+      );
     };
+  }
+
+  /** Build an audit record without appending it (for inclusion in an atomic commit). */
+  #record(
+    boundary: Boundary,
+    event: string,
+    runId: string,
+    workflowId: string,
+    actionRef?: string,
+    detail?: Record<string, unknown>,
+  ): AuditRecord {
+    const record: AuditRecord = {
+      id: newId("aud"),
+      at: nowIso(this.#deps.clock),
+      boundary,
+      event,
+      runId,
+      workflowId,
+    };
+    if (actionRef !== undefined) record.actionRef = actionRef;
+    if (detail !== undefined) record.detail = detail;
+    return record;
   }
 }
 

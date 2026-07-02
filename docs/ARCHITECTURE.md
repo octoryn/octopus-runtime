@@ -264,6 +264,7 @@ swaps in real adapters without touching the core.
 | `Store` | Runs + results + event dedup | `MemoryStore` | `FileStore`, `SqliteStore` |
 | `AuditSink` | Append-only decision + effect log | `MemoryAuditSink` | `FileAuditSink`, `SqliteAuditSink` |
 | `ApprovalGateway` | Persist Drafts + decisions | `MemoryApprovalGateway` | `FileApprovalGateway`, `SqliteApprovalGateway` |
+| `Transactor` (optional) | Atomic multi-write commit | — (sequential fallback) | `SqliteTransactor` |
 | `SecretProvider` | Connector credentials | `StaticSecretProvider` / `EnvSecretProvider` | — |
 
 Two durable backends, same interfaces, no core changes:
@@ -458,6 +459,18 @@ Added in v0.2:
   store's two-write crash window by making the run and its dedup key one atomic
   row. Optional peer dependency, isolated to its own entry point.
 
+Added in v0.3:
+
+- **Unit of work** (`Transactor` port) — resolving an approval commits its
+  status, the execution result, and the decision's audit records in one
+  transaction (`SqliteTransactor`), removing the last multi-write inconsistency
+  in the core flow. The external effect runs *before* and *outside* the
+  transaction (it cannot be rolled back); the approval flips to `approved` only
+  when the record commits, so a crash mid-effect leaves it re-resolvable and the
+  effect is deduped by its idempotency key. Backends without a transactor apply
+  the writes sequentially — the engine is unchanged either way. This is the
+  boundary future saga/rollback/parallel work will build on.
+
 Still deferred (no API impact when added later):
 
 - **Parallel scheduling** across independent `dependsOn` branches — deliberately
@@ -465,9 +478,10 @@ Still deferred (no API impact when added later):
 - **Cross-process file coordination** — the *file* adapters assume a single
   runtime owns their directory (in-process locking only). The SQLite backend has
   no such limitation for dedup/run atomicity.
-- **Single-commit unit-of-work across ports** — e.g. approval decision + result
-  in one transaction. Each port op is individually atomic today; a shared
-  transaction spanning ports is a future enhancement.
+- **Transactional scope for whole runs** — v0.3 makes approval *resolution*
+  atomic (status + result + audit). Extending one commit to span an entire
+  multi-action run (and, later, sagas/rollback) builds on the same `Transactor`
+  boundary.
 - **Compensation / rollback** for partial failures — likely an OS-layer saga
   concern rather than a connector responsibility.
 - **Shadow correlation diffing** — the runtime emits predictions with

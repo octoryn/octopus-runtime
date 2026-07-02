@@ -58,3 +58,33 @@ export interface SecretProvider {
   get(key: string): string | undefined;
   require(key: string): string;
 }
+
+/**
+ * A set of state changes to persist together. Used at points where more than one
+ * piece of durable state must move as a unit — chiefly resolving an approval,
+ * which flips the approval's status, records the execution result, and appends
+ * the decision's audit records.
+ */
+export interface StateChange {
+  /** Upsert this approval (e.g. its status after a decision). */
+  approval?: Approval;
+  /** Upsert this action result into its run. */
+  result?: ExecutionResult;
+  /** Append these audit records. */
+  audit?: AuditRecord[];
+}
+
+/**
+ * Optional backend capability: commit a {@link StateChange} atomically — all
+ * parts land, or none do. A backend that can provide real transactions (e.g.
+ * SQLite) implements this so the engine's multi-write state transitions are
+ * crash-consistent. When absent, the engine falls back to applying each write in
+ * turn through the individual ports (correct, but not crash-atomic).
+ *
+ * The transaction covers *durable state only* — never a connector's external
+ * effect, which cannot be rolled back. The engine performs the effect first,
+ * then commits the record of what happened as one unit.
+ */
+export interface Transactor {
+  commit(change: StateChange): Promise<void>;
+}

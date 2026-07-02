@@ -29,7 +29,7 @@
  */
 
 import Database from "better-sqlite3";
-import type { Store, AuditSink, ApprovalGateway } from "../ports.js";
+import type { Store, AuditSink, ApprovalGateway, Transactor, StateChange } from "../ports.js";
 import type { AuditRecord, ExecutionResult, RunRecord } from "../types.js";
 import type { Approval, ApprovalStatus } from "../approvals.js";
 import { safeJsonStringify } from "../internal.js";
@@ -203,11 +203,62 @@ export class SqliteApprovalGateway implements ApprovalGateway {
   }
 }
 
-/** A durable SQLite backend: store, audit, and approvals over one database. */
+/**
+ * Atomic {@link Transactor}: commits a run result, approval, and audit records
+ * in a single SQLite transaction (BEGIN/COMMIT), so the engine's multi-write
+ * state transitions are crash-consistent. Rolls back entirely on any failure.
+ */
+export class SqliteTransactor implements Transactor {
+  readonly #db: DB;
+
+  constructor(db: DB) {
+    this.#db = db;
+  }
+
+  async commit(change: StateChange): Promise<void> {
+    const getRun = this.#db.prepare(`SELECT data FROM runs WHERE id = ?`);
+    const updateRun = this.#db.prepare(`UPDATE runs SET data = ? WHERE id = ?`);
+    const upsertApproval = this.#db.prepare(
+      `INSERT INTO approvals (id, status, data) VALUES (@id, @status, @data)
+       ON CONFLICT(id) DO UPDATE SET status = excluded.status, data = excluded.data`,
+    );
+    const insertAudit = this.#db.prepare(`INSERT INTO audit (run_id, data) VALUES (?, ?)`);
+
+    const apply = this.#db.transaction((c: StateChange) => {
+      const res = c.result;
+      if (res) {
+        const row = getRun.get(res.runId) as { data: string } | undefined;
+        if (row) {
+          const run = JSON.parse(row.data) as RunRecord;
+          const idx = run.results.findIndex((r) => r.actionRef === res.actionRef);
+          if (idx >= 0) run.results[idx] = res;
+          else run.results.push(res);
+          updateRun.run(safeJsonStringify(run), res.runId);
+        }
+      }
+      if (c.approval) {
+        upsertApproval.run({
+          id: c.approval.id,
+          status: c.approval.status,
+          data: safeJsonStringify(c.approval),
+        });
+      }
+      for (const record of c.audit ?? []) {
+        insertAudit.run(record.runId ?? null, safeJsonStringify(record));
+      }
+    });
+
+    apply(change);
+  }
+}
+
+/** A durable SQLite backend: store, audit, approvals, and transactor over one database. */
 export interface SqliteBackend {
   store: Store;
   audit: AuditSink;
   approvals: ApprovalGateway;
+  /** Atomic multi-write commits (approval + result + audit as one transaction). */
+  transactor: Transactor;
   /** The underlying database handle, for advanced use. */
   db: DB;
   /** Close the database. Call on shutdown. */
@@ -225,6 +276,7 @@ export function createSqliteBackend(target: string | DB): SqliteBackend {
     store: new SqliteStore(db),
     audit: new SqliteAuditSink(db),
     approvals: new SqliteApprovalGateway(db),
+    transactor: new SqliteTransactor(db),
     db,
     close: () => db.close(),
   };
