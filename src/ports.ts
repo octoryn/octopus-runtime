@@ -25,6 +25,12 @@ export interface Store {
   /** Persist or replace a single action result (used when a draft later executes). */
   saveResult(result: ExecutionResult): Promise<void>;
   getResult(runId: string, actionRef: string): Promise<ExecutionResult | undefined>;
+  /**
+   * Find an existing run for a given workflow + trigger event id, if any. Used
+   * to make ingestion idempotent so a redelivered event (e.g. a duplicate
+   * webhook) does not run the same workflow twice.
+   */
+  findRunByEvent(workflowId: string, eventId: string): Promise<RunRecord | undefined>;
 }
 
 /** Append-only sink for audit records. Emitted at every pipeline boundary. */

@@ -10,7 +10,7 @@
 import type { AutonomyLevel } from "./autonomy.js";
 import type { RenderedAction } from "./types.js";
 
-export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
 
 /** A request for human approval of a rendered (but not executed) action. */
 export interface Approval {
@@ -23,10 +23,17 @@ export interface Approval {
   actionType: string;
   /** The autonomy the action requested. */
   requestedAutonomy: AutonomyLevel;
+  /** Stable idempotency key for the eventual execute (survives redelivery). */
+  idempotencyKey: string;
   /** The concrete, side-effect-free render awaiting approval. */
   rendered: RenderedAction;
   createdAt: string;
-  /** Set once resolved. */
+  /**
+   * Wall-clock deadline (ISO-8601) after which a still-pending approval is
+   * expired, fail-closed. Absent means the approval never expires.
+   */
+  expiresAt?: string;
+  /** Set once resolved (approved/rejected) or expired. */
   decidedAt?: string;
   /** Identifier of whoever decided; opaque to the runtime. */
   decidedBy?: string;

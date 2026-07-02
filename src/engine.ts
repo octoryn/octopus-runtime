@@ -30,12 +30,11 @@ import type { ConnectorContext, ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
 import { AutonomyLevel } from "./autonomy.js";
 import { decide } from "./policy.js";
-import type { PolicyDecision } from "./policy.js";
 import { evaluateConditions } from "./conditions.js";
 import { routeFor, type GateRoute } from "./gate.js";
 import { validatePlan } from "./workflow.js";
-import { newId, idempotencyKey } from "./ids.js";
-import { toErrorInfo, nowIso, toRecordable } from "./internal.js";
+import { newId, idempotencyKey, compositeKey } from "./ids.js";
+import { toErrorInfo, nowIso, toRecordable, withTimeout, isEngineTimeout } from "./internal.js";
 import { ConfigurationError, NotFoundError } from "./errors.js";
 
 /** Fully-resolved dependencies the engine runs against. */
@@ -46,6 +45,16 @@ export interface EngineDeps {
   approvals: ApprovalGateway;
   secrets: SecretProvider;
   registry: ConnectorRegistry;
+  /**
+   * Wall-clock timeout (ms) applied to each connector `render` and `execute`.
+   * A timed-out call fails closed. `undefined` or `<= 0` disables it.
+   */
+  connectorTimeoutMs?: number;
+  /**
+   * Time-to-live (ms) for Draft approvals. A still-pending approval past its TTL
+   * expires fail-closed. `undefined` disables expiry (approvals never expire).
+   */
+  approvalTtlMs?: number;
 }
 
 /** Outcomes that satisfy a downstream dependency; anything else fails closed. */
@@ -61,6 +70,8 @@ export class Engine {
   readonly #workflows: Workflow[];
   /** Approval ids currently being resolved, to serialize concurrent decisions. */
   readonly #resolving = new Set<string>();
+  /** In-flight runs keyed by the (workflow, event) composite, to coalesce duplicates. */
+  readonly #inflight = new Map<string, Promise<RunRecord>>();
 
   constructor(deps: EngineDeps, workflows: Workflow[]) {
     this.#deps = deps;
@@ -77,8 +88,39 @@ export class Engine {
     return runs;
   }
 
-  /** Run a single workflow against an event, end to end. */
-  async runWorkflow(workflow: Workflow, event: TriggerEvent): Promise<RunRecord> {
+  /**
+   * Run a single workflow against an event, end to end.
+   *
+   * Ingestion is idempotent even under concurrency: an in-flight run for the
+   * same (workflow, event) is shared rather than started twice, and a completed
+   * one is returned from the store. Both a redelivered *and* a concurrently
+   * redelivered event resolve to a single run.
+   */
+  runWorkflow(workflow: Workflow, event: TriggerEvent): Promise<RunRecord> {
+    const key = compositeKey(workflow.id, event.id);
+    // Synchronous check-and-set (no await between) makes this atomic in JS's
+    // single-threaded model, so concurrent duplicates coalesce onto one run.
+    const inflight = this.#inflight.get(key);
+    if (inflight) return inflight;
+
+    const promise = this.#runOnce(workflow, event);
+    this.#inflight.set(key, promise);
+    return promise.finally(() => {
+      if (this.#inflight.get(key) === promise) this.#inflight.delete(key);
+    });
+  }
+
+  async #runOnce(workflow: Workflow, event: TriggerEvent): Promise<RunRecord> {
+    // Idempotent ingestion: a redelivered event (duplicate webhook) returns the
+    // existing run untouched rather than executing the workflow again.
+    const existing = await this.#deps.store.findRunByEvent(workflow.id, event.id);
+    if (existing) {
+      await this.#auditEmitter(existing.id, workflow.id)("trigger", "trigger.deduplicated", {
+        eventId: event.id,
+      });
+      return existing;
+    }
+
     const runId = newId("run");
     const startedAt = nowIso(this.#deps.clock);
     const workflowId = workflow.id;
@@ -228,7 +270,8 @@ export class Engine {
 
     // Everything below renders, so resolve the connector and validate input.
     const definition = this.#deps.registry.resolve(action.connectorId, action.actionType);
-    const cctx = this.#connectorContext(runId, workflow.id, action.ref);
+    const idemKey = idempotencyKey(workflow.id, event.id, action.ref);
+    const cctx = this.#connectorContext(runId, workflow.id, action.ref, idemKey);
 
     let parsedInput: unknown;
     try {
@@ -245,14 +288,17 @@ export class Engine {
 
     let rendered: RenderedAction;
     try {
-      rendered = await definition.render(parsedInput, cctx);
+      rendered = await this.#withTimeout(definition.render(parsedInput, cctx), "render");
       await emit("connector_render", "render.succeeded", { preview: rendered.preview });
     } catch (err) {
-      await emit("connector_render", "render.failed", { error: toErrorInfo(err) });
+      const timedOut = isEngineTimeout(err);
+      await emit("connector_render", timedOut ? "render.timed_out" : "render.failed", {
+        error: toErrorInfo(err),
+      });
       return this.#finish(emit, {
         ...common,
         outcome: "failed",
-        reason: "render_failed",
+        reason: timedOut ? "render_timeout" : "render_failed",
         error: toErrorInfo(err),
       });
     }
@@ -262,7 +308,7 @@ export class Engine {
     }
 
     if (route === "draft") {
-      const approval = this.#createApprovalRecord(runId, workflow.id, action, decision, rendered);
+      const approval = this.#createApprovalRecord(runId, workflow.id, action, idemKey, rendered);
       await this.#deps.approvals.create(approval);
       await emit("approval_gate", "approval.created", { approvalId: approval.id });
       return this.#finish(emit, {
@@ -275,7 +321,7 @@ export class Engine {
 
     // route === "autonomous"
     try {
-      const outcome = await definition.execute(rendered, cctx);
+      const outcome = await this.#withTimeout(definition.execute(rendered, cctx), "execute");
       await emit("connector_execute", "execute.succeeded", {
         effectRefs: outcome.effectRefs ?? [],
       });
@@ -287,11 +333,14 @@ export class Engine {
         effectRefs: outcome.effectRefs,
       });
     } catch (err) {
-      await emit("connector_execute", "execute.failed", { error: toErrorInfo(err) });
+      const timedOut = isEngineTimeout(err);
+      await emit("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", {
+        error: toErrorInfo(err),
+      });
       return this.#finish(emit, {
         ...common,
         outcome: "failed",
-        reason: "execute_failed",
+        reason: timedOut ? "execute_timeout" : "execute_failed",
         rendered,
         error: toErrorInfo(err),
       });
@@ -331,6 +380,11 @@ export class Engine {
       throw new ConfigurationError(
         `approval "${approvalId}" is already ${approval.status}`,
       );
+    }
+
+    // Fail-closed on TTL: an approval decided after its deadline never executes.
+    if (this.#isExpired(approval)) {
+      return this.#expire(approval);
     }
 
     const decidedAt = nowIso(this.#deps.clock);
@@ -377,9 +431,14 @@ export class Engine {
     }
 
     const definition = this.#deps.registry.resolve(approval.connectorId, approval.actionType);
-    const cctx = this.#connectorContext(approval.runId, approval.workflowId, approval.actionRef);
+    const cctx = this.#connectorContext(
+      approval.runId,
+      approval.workflowId,
+      approval.actionRef,
+      approval.idempotencyKey,
+    );
     try {
-      const outcome = await definition.execute(approval.rendered, cctx);
+      const outcome = await this.#withTimeout(definition.execute(approval.rendered, cctx), "execute");
       await emit("connector_execute", "execute.succeeded", {
         effectRefs: outcome.effectRefs ?? [],
       });
@@ -393,11 +452,14 @@ export class Engine {
       await emit("result", "result.recorded", { outcome: result.outcome });
       return result;
     } catch (err) {
-      await emit("connector_execute", "execute.failed", { error: toErrorInfo(err) });
+      const timedOut = isEngineTimeout(err);
+      await emit("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", {
+        error: toErrorInfo(err),
+      });
       const result = this.#finishData({
         ...common,
         outcome: "failed",
-        reason: "execute_failed",
+        reason: timedOut ? "execute_timeout" : "execute_failed",
         error: toErrorInfo(err),
       });
       await this.#deps.store.saveResult(result);
@@ -406,14 +468,40 @@ export class Engine {
     }
   }
 
+  /**
+   * Expire any pending approvals whose TTL has elapsed. Each becomes a fail-
+   * closed `expired` result; the effect never fires. Intended to be called
+   * periodically by a host scheduler. Returns the results for expired approvals.
+   */
+  async sweepExpiredApprovals(): Promise<ExecutionResult[]> {
+    const pending = await this.#deps.approvals.list({ status: "pending" });
+    const expired: ExecutionResult[] = [];
+    for (const approval of pending) {
+      if (!this.#isExpired(approval)) continue;
+      if (this.#resolving.has(approval.id)) continue; // being decided right now
+      this.#resolving.add(approval.id);
+      try {
+        expired.push(await this.#expire(approval));
+      } finally {
+        this.#resolving.delete(approval.id);
+      }
+    }
+    return expired;
+  }
+
   // --- helpers -----------------------------------------------------------
 
-  #connectorContext(runId: string, workflowId: string, actionRef: string): ConnectorContext {
+  #connectorContext(
+    runId: string,
+    workflowId: string,
+    actionRef: string,
+    idemKey: string,
+  ): ConnectorContext {
     return {
       runId,
       workflowId,
       actionRef,
-      idempotencyKey: idempotencyKey(runId, actionRef),
+      idempotencyKey: idemKey,
       secrets: this.#deps.secrets,
       clock: this.#deps.clock,
     };
@@ -423,10 +511,11 @@ export class Engine {
     runId: string,
     workflowId: string,
     action: PlannedAction,
-    _decision: PolicyDecision,
+    idemKey: string,
     rendered: RenderedAction,
   ): Approval {
-    return {
+    const now = this.#deps.clock.now();
+    const approval: Approval = {
       id: newId("apr"),
       status: "pending",
       runId,
@@ -435,9 +524,56 @@ export class Engine {
       connectorId: action.connectorId,
       actionType: action.actionType,
       requestedAutonomy: action.requestedAutonomy,
+      idempotencyKey: idemKey,
       rendered,
-      createdAt: nowIso(this.#deps.clock),
+      createdAt: now.toISOString(),
     };
+    const ttl = this.#deps.approvalTtlMs;
+    if (ttl !== undefined && ttl > 0) {
+      approval.expiresAt = new Date(now.getTime() + ttl).toISOString();
+    }
+    return approval;
+  }
+
+  /** True if a pending approval has passed its TTL deadline (by the clock). */
+  #isExpired(approval: Approval): boolean {
+    if (approval.expiresAt === undefined) return false;
+    return this.#deps.clock.now().getTime() >= new Date(approval.expiresAt).getTime();
+  }
+
+  /** Mark an approval expired and record the fail-closed `expired` result. */
+  async #expire(approval: Approval): Promise<ExecutionResult> {
+    const decidedAt = nowIso(this.#deps.clock);
+    await this.#deps.approvals.save({ ...approval, status: "expired", decidedAt });
+
+    const emit = this.#auditEmitter(approval.runId, approval.workflowId, approval.actionRef);
+    await emit("approval_decision", "approval.expired", { approvalId: approval.id });
+
+    const prior = await this.#deps.store.getResult(approval.runId, approval.actionRef);
+    const result = this.#finishData({
+      runId: approval.runId,
+      workflowId: approval.workflowId,
+      actionRef: approval.actionRef,
+      connectorId: approval.connectorId,
+      actionType: approval.actionType,
+      requestedAutonomy: approval.requestedAutonomy,
+      effectiveAutonomy: AutonomyLevel.Draft,
+      rendered: approval.rendered,
+      approvalId: approval.id,
+      outcome: "expired",
+      reason: "approval_expired",
+      startedAt: prior?.startedAt ?? decidedAt,
+    });
+    await this.#deps.store.saveResult(result);
+    await emit("result", "result.recorded", { outcome: result.outcome });
+    return result;
+  }
+
+  /** Apply the configured connector timeout (if any) to a connector call. */
+  #withTimeout<T>(value: T | Promise<T>, label: string): Promise<T> {
+    const promise = Promise.resolve(value);
+    const ms = this.#deps.connectorTimeoutMs;
+    return ms !== undefined && ms > 0 ? withTimeout(promise, ms, label) : promise;
   }
 
   /** Build a result, emit its terminal `result.recorded` audit, and return it. */

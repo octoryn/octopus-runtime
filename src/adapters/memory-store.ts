@@ -7,12 +7,16 @@
 
 import type { Store } from "../ports.js";
 import type { ExecutionResult, RunRecord } from "../types.js";
+import { compositeKey } from "../ids.js";
 
 export class MemoryStore implements Store {
   readonly #runs = new Map<string, RunRecord>();
+  /** `${workflowId}::${eventId}` -> runId, for idempotent ingestion. */
+  readonly #byEvent = new Map<string, string>();
 
   async saveRun(run: RunRecord): Promise<void> {
     this.#runs.set(run.id, clone(run));
+    this.#byEvent.set(eventKey(run.workflowId, run.event.id), run.id);
   }
 
   async getRun(runId: string): Promise<RunRecord | undefined> {
@@ -37,6 +41,17 @@ export class MemoryStore implements Store {
     const result = run?.results.find((r) => r.actionRef === actionRef);
     return result ? clone(result) : undefined;
   }
+
+  async findRunByEvent(workflowId: string, eventId: string): Promise<RunRecord | undefined> {
+    const runId = this.#byEvent.get(eventKey(workflowId, eventId));
+    if (runId === undefined) return undefined;
+    const run = this.#runs.get(runId);
+    return run ? clone(run) : undefined;
+  }
+}
+
+function eventKey(workflowId: string, eventId: string): string {
+  return compositeKey(workflowId, eventId);
 }
 
 /** Deep clone so stored state cannot be mutated by callers holding a reference. */

@@ -34,6 +34,17 @@ export interface RuntimeOptions {
   audit?: AuditSink;
   approvals?: ApprovalGateway;
   secrets?: SecretProvider;
+  /**
+   * Wall-clock timeout (ms) applied to each connector `render`/`execute`. A
+   * timed-out call fails closed. Omit or set `<= 0` to disable.
+   */
+  connectorTimeoutMs?: number;
+  /**
+   * Time-to-live (ms) for Draft approvals. A pending approval past its TTL
+   * expires fail-closed (call {@link Runtime.sweepExpiredApprovals} to sweep, or
+   * it is enforced lazily when the approval is resolved). Omit to never expire.
+   */
+  approvalTtlMs?: number;
 }
 
 export class Runtime {
@@ -58,10 +69,21 @@ export class Runtime {
       this.registerWorkflow(workflow);
     }
 
-    this.#engine = new Engine(
-      { clock, store, audit, approvals, secrets, registry: this.#registry },
-      this.#workflows,
-    );
+    const engineDeps: ConstructorParameters<typeof Engine>[0] = {
+      clock,
+      store,
+      audit,
+      approvals,
+      secrets,
+      registry: this.#registry,
+    };
+    if (options.connectorTimeoutMs !== undefined) {
+      engineDeps.connectorTimeoutMs = options.connectorTimeoutMs;
+    }
+    if (options.approvalTtlMs !== undefined) {
+      engineDeps.approvalTtlMs = options.approvalTtlMs;
+    }
+    this.#engine = new Engine(engineDeps, this.#workflows);
     this.read = new ReadApi({ store, audit, approvals });
   }
 
@@ -93,6 +115,14 @@ export class Runtime {
   /** Apply a decision to a pending approval; executes the effect iff approved. */
   resolveApproval(approvalId: string, decision: ApprovalDecision): Promise<ExecutionResult> {
     return this.#engine.resolveApproval(approvalId, decision);
+  }
+
+  /**
+   * Expire any pending approvals past their TTL, fail-closed. Returns the
+   * `expired` results. A host scheduler typically calls this periodically.
+   */
+  sweepExpiredApprovals(): Promise<ExecutionResult[]> {
+    return this.#engine.sweepExpiredApprovals();
   }
 }
 

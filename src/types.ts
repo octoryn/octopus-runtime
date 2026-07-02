@@ -94,9 +94,10 @@ export interface ErrorInfo {
  * - `drafted`   — Draft: rendered and an approval was created; awaiting decision.
  * - `executed`  — Autonomous or approved Draft: the effect was performed.
  * - `rejected`  — a Draft approval was rejected.
+ * - `expired`   — a Draft approval passed its TTL before a decision (fail-closed).
  * - `denied`    — policy denied the action outright.
  * - `skipped`   — a dependency was not satisfied (fail-closed).
- * - `failed`    — render or execute threw.
+ * - `failed`    — render or execute threw, or a connector call timed out.
  */
 export type Outcome =
   | "observed"
@@ -104,6 +105,7 @@ export type Outcome =
   | "drafted"
   | "executed"
   | "rejected"
+  | "expired"
   | "denied"
   | "skipped"
   | "failed";

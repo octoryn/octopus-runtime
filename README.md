@@ -153,15 +153,53 @@ in-memory adapter, so the runtime runs on a laptop with nothing installed:
 
 | Port | Default adapter |
 |---|---|
-| `Store` | `MemoryStore` |
-| `AuditSink` | `MemoryAuditSink` |
-| `ApprovalGateway` | `MemoryApprovalGateway` |
+| `Store` | `MemoryStore` — or durable `FileStore` |
+| `AuditSink` | `MemoryAuditSink` — or durable `FileAuditSink` |
+| `ApprovalGateway` | `MemoryApprovalGateway` — or durable `FileApprovalGateway` |
 | `Clock` | `SystemClock` (`ManualClock` for tests) |
 | `SecretProvider` | `StaticSecretProvider` / `EnvSecretProvider` |
 
 An outer operating system substitutes durable or networked adapters — including
 ones that bridge to memory, awareness, or signal systems — **without touching
 the core**. Dependency arrows always point inward.
+
+## Durability, idempotency, and time limits
+
+For work that must survive real process restarts, duplicate deliveries, approval
+delays, and slow connectors, swap in the durable file backend and set two
+options — no code changes to workflows or connectors:
+
+```ts
+import { createRuntime, createFileBackend } from "@octopus/workflow-runtime";
+
+const runtime = createRuntime({
+  ...createFileBackend("./data"),   // durable Store + AuditSink + ApprovalGateway
+  connectors,
+  workflows,
+  connectorTimeoutMs: 30_000,       // a slow render/execute fails closed
+  approvalTtlMs: 24 * 60 * 60_000,  // a pending draft expires after 24h
+});
+```
+
+What you get:
+
+- **Survives restart.** Runs, the audit trail, and pending approvals live on
+  disk (atomic writes; one JSON file per run/approval, JSON Lines for audit). A
+  Draft created before a restart is still resolvable after it.
+- **Idempotent ingestion.** A redelivered event (same `id`, same workflow) —
+  e.g. a duplicate webhook — returns the original run instead of executing
+  again, and the event is audited as `trigger.deduplicated`.
+- **Effect-level idempotency.** The `idempotencyKey` handed to connectors is
+  derived from `(workflow, event, action)`, so even if ingestion dedup is
+  bypassed (two workers, a lost pointer), a connector that dedupes on it fires
+  the effect at most once.
+- **Approval TTL.** A pending draft past `approvalTtlMs` expires fail-closed —
+  it never executes. Call `runtime.sweepExpiredApprovals()` from a scheduler, or
+  it is enforced lazily when someone tries to resolve an overdue approval.
+- **Connector timeout.** A `render`/`execute` exceeding `connectorTimeoutMs`
+  fails closed (`render_timeout` / `execute_timeout`). The timeout bounds how
+  long the runtime *waits*; because the underlying call is not cancelled, effects
+  must be idempotent — which the stable key above ensures.
 
 ## Reading what happened
 
@@ -185,7 +223,7 @@ repository never assumes they exist.
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit
-npm test            # node --test (39 tests)
+npm test            # node --test (59 tests)
 npm run build       # emit dist/
 ```
 

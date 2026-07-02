@@ -30,3 +30,14 @@ export class ConfigurationError extends RuntimeError {}
 
 /** Thrown when an operation references something that does not exist. */
 export class NotFoundError extends RuntimeError {}
+
+/** Thrown when a connector call exceeds its configured wall-clock timeout. */
+export class TimeoutError extends RuntimeError {
+  constructor(
+    message: string,
+    /** Timeout in milliseconds that was exceeded. */
+    readonly timeoutMs: number,
+  ) {
+    super(message);
+  }
+}

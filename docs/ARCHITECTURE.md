@@ -258,13 +258,19 @@ The core depends only on interfaces. Every port ships a zero-config local
 adapter so the runtime runs on a laptop with nothing installed; the OS layer
 swaps in real adapters without touching the core.
 
-| Port | Purpose | Default adapter (v0) |
-|---|---|---|
-| `Clock` | Time (deterministic tests) | `SystemClock` / `ManualClock` |
-| `Store` | Runs + results | `MemoryStore` |
-| `AuditSink` | Append-only decision + effect log | `MemoryAuditSink` |
-| `ApprovalGateway` | Persist Drafts + decisions | `MemoryApprovalGateway` |
-| `SecretProvider` | Connector credentials | `StaticSecretProvider` / `EnvSecretProvider` |
+| Port | Purpose | In-memory default | Durable adapter |
+|---|---|---|---|
+| `Clock` | Time (deterministic tests) | `SystemClock` / `ManualClock` | — |
+| `Store` | Runs + results + event dedup | `MemoryStore` | `FileStore` |
+| `AuditSink` | Append-only decision + effect log | `MemoryAuditSink` | `FileAuditSink` |
+| `ApprovalGateway` | Persist Drafts + decisions | `MemoryApprovalGateway` | `FileApprovalGateway` |
+| `SecretProvider` | Connector credentials | `StaticSecretProvider` / `EnvSecretProvider` | — |
+
+The durable file adapters (`createFileBackend(dir)`) persist runs, audit, and
+approvals as atomically-written JSON on disk with zero dependencies, so state
+survives process restarts. They keep the same `Store`/`AuditSink`/
+`ApprovalGateway` interfaces, so a future SQLite or networked adapter drops in
+without touching the core.
 
 Triggers enter by calling `runtime.dispatch(event)` (or `run(workflowId,
 event)`) directly, so v0 has no `EventSource` port — a host bridges webhooks/cron
@@ -418,15 +424,37 @@ These were the open questions; v0 resolves them as follows.
    with a built-in zero-dependency implementation. Zod (or any `{ parse }`) drops
    in unchanged.
 
-Still deferred (not needed for v0, no API impact when added later):
+Added in v0.1 (durability & operational safety), all additive to the API:
+
+- **Durable file backend** — `createFileBackend(dir)` persists runs, audit, and
+  approvals so state survives process restarts.
+- **Idempotent ingestion** — `Store.findRunByEvent` makes a redelivered event
+  (duplicate webhook) return the original run instead of executing twice; the
+  duplicate is audited as `trigger.deduplicated`. The connector `idempotencyKey`
+  is derived from `(workflow, event, action)` — not the run id — so effect-level
+  dedup survives even if ingestion dedup is bypassed.
+- **Approval TTL** — `approvalTtlMs`; a pending draft past its deadline expires
+  fail-closed (`expired`), enforced by `sweepExpiredApprovals()` or lazily on
+  resolve.
+- **Connector timeout** — `connectorTimeoutMs` bounds each render/execute;
+  overruns fail closed (`render_timeout` / `execute_timeout`). The call is not
+  cancelled, so the timeout bounds waiting, not the effect — which is why the
+  stable idempotency key matters.
+
+Still deferred (no API impact when added later):
 
 - **Parallel scheduling** across independent `dependsOn` branches.
-- **Approval expiry / TTL** semantics (v0 approvals do not expire).
+- **Cross-process store coordination** — the file adapters assume a single
+  runtime owns their data directory (in-process locking only).
+- **Crash-atomic ingestion dedup** — the file store's run and event-pointer are
+  two separate atomic writes; a crash between them can let a redelivered event
+  re-run after restart. Exactly-once *effects* rely on the connector honoring the
+  stable `idempotencyKey`; ingestion dedup is a best-effort optimization.
 - **Compensation / rollback** for partial failures — likely an OS-layer saga
   concern rather than a connector responsibility.
 - **Shadow correlation diffing** — the runtime emits predictions with
   correlation keys; comparing them against reality stays outside this repo.
-- **Declarative (data-defined) policy format** — v0 policies are code.
+- **Declarative (data-defined) policy format** — policies are code.
 
 ---
 

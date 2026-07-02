@@ -57,7 +57,12 @@ export {
   ManualClock,
   StaticSecretProvider,
   EnvSecretProvider,
+  FileStore,
+  FileAuditSink,
+  FileApprovalGateway,
+  createFileBackend,
 } from "./adapters/index.js";
+export type { FileBackend } from "./adapters/index.js";
 
 // --- Domain types --------------------------------------------------------
 export type {
@@ -76,10 +81,10 @@ export type {
 } from "./types.js";
 
 // --- Ids -----------------------------------------------------------------
-export { newId, idempotencyKey } from "./ids.js";
+export { newId, idempotencyKey, compositeKey } from "./ids.js";
 
 // --- Errors --------------------------------------------------------------
-export { RuntimeError, ValidationError, ConfigurationError, NotFoundError } from "./errors.js";
+export { RuntimeError, ValidationError, ConfigurationError, NotFoundError, TimeoutError } from "./errors.js";
 
 // --- Schema (zero-dependency; any `Schema<T>` such as Zod also works) -----
 export * as schema from "./schema.js";
