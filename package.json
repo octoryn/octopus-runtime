@@ -1,8 +1,17 @@
 {
   "name": "@octopus/workflow-runtime",
-  "version": "0.0.1",
+  "version": "0.3.0",
   "description": "Standalone governed execution runtime. Moves work from trigger to result across autonomy, policy, approval, connector, execution, and audit boundaries.",
   "license": "MIT",
+  "author": "Ran Tao",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/workflow-runtime.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/workflow-runtime/issues"
+  },
+  "homepage": "https://github.com/your-org/workflow-runtime#readme",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -18,6 +27,10 @@
       "types": "./dist/connectors/email.d.ts",
       "import": "./dist/connectors/email.js"
     },
+    "./connectors/http": {
+      "types": "./dist/connectors/http.d.ts",
+      "import": "./dist/connectors/http.js"
+    },
     "./adapters/sqlite": {
       "types": "./dist/adapters/sqlite.d.ts",
       "import": "./dist/adapters/sqlite.js"
@@ -26,6 +39,8 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
     "docs"
   ],
   "bin": {

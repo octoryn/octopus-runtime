@@ -128,6 +128,23 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOutput<S>> {
   } as Schema<ObjectOutput<S>>;
 }
 
+/** An object with arbitrary string keys, each value validated by `value`. */
+export function record<V>(value: Schema<V>): Schema<Record<string, V>> {
+  return {
+    parse(input, path = "") {
+      if (typeof input !== "object" || input === null || Array.isArray(input)) {
+        fail(path as string, "must be an object");
+      }
+      const source = input as Record<string, unknown>;
+      const result: Record<string, V> = {};
+      for (const key of Object.keys(source)) {
+        result[key] = (value as SchemaWithPath<V>).parse(source[key], joinPath(path as string, key));
+      }
+      return result;
+    },
+  } as Schema<Record<string, V>>;
+}
+
 /**
  * A pass-through schema that accepts any value.
  * Use only when input genuinely has no shape (e.g. opaque provider payloads).

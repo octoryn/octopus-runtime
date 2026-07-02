@@ -130,6 +130,12 @@ Input is validated against the schema before `render` is ever called. Any object
 satisfying the `Schema<T>` interface works — including a Zod schema — so you are
 not tied to the built-in validator.
 
+Two connectors ship in the box: an in-memory `email` (for examples/tests) and a
+real, zero-dependency **`http`** connector on the platform `fetch` —
+`@octopus/workflow-runtime/connectors/http`. The HTTP connector attaches an
+`Idempotency-Key` derived from the runtime's stable idempotency key on mutating
+requests, and fails closed on non-2xx responses.
+
 ## Governing with policies
 
 Policies decide how far an action goes. They are **monotonic**: a policy may only
@@ -254,7 +260,7 @@ repository never assumes they exist.
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit
-npm test            # node --test (77 tests)
+npm test            # node --test (83 tests)
 npm run build       # emit dist/
 ```
 
