@@ -262,4 +262,4 @@ npm run build       # emit dist/
 
 ## 许可证
 
-MIT
+[AGPL-3.0-or-later](LICENSE)

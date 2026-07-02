@@ -275,4 +275,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
 
 ## License
 
-MIT
+[AGPL-3.0-or-later](LICENSE)

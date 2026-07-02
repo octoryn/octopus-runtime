@@ -5,6 +5,13 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.3.2] — 2026-07-02
+
+### 修复
+
+- README 的"许可证"一节仍写着 `MIT`,而 `LICENSE` 文件、`package.json` 与 badge 均为
+  AGPL-3.0-or-later。已修正为 AGPL-3.0-or-later(EN + zh-CN),使许可在各处保持一致。
+
 ## [0.3.1] — 2026-07-02
 
 ### 新增

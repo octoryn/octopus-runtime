@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] — 2026-07-02
+
+### Fixed
+- The README "License" section still said `MIT` while the `LICENSE` file,
+  `package.json`, and badge are AGPL-3.0-or-later. Corrected to
+  AGPL-3.0-or-later (EN + zh-CN) so the license is consistent everywhere.
+
 ## [0.3.1] — 2026-07-02
 
 ### Added
