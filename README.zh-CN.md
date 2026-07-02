@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/octoryn/octopus-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/octoryn/octopus-runtime/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/octoryn/octopus-runtime?sort=semver)](https://github.com/octoryn/octopus-runtime/releases/latest)
-[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
 
 **一个独立的、受治理的执行运行时。** 它只回答一个问题：
@@ -262,4 +262,4 @@ npm run build       # emit dist/
 
 ## 许可证
 
-[AGPL-3.0-or-later](LICENSE)
+[Apache-2.0](LICENSE)

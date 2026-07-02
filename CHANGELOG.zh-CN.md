@@ -5,6 +5,13 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.4.0] — 2026-07-03
+
+### 变更
+- **许可证从 AGPL-3.0-or-later 改为 Apache-2.0。** Runtime 定位为可被直接依赖的
+  受治理执行库;宽松许可移除了 AGPL 对下游(含商用与闭源)用户造成的采纳障碍。
+  `LICENSE` 文件、`package.json`、README badge 与正文均已更新为 Apache-2.0。
+
 ## [0.3.2] — 2026-07-02
 
 ### 修复

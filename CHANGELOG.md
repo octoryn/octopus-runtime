@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-07-03
+
+### Changed
+- **License changed from AGPL-3.0-or-later to Apache-2.0.** Runtime is meant to
+  be depended on directly as a governed-execution library; a permissive license
+  removes the adoption barrier AGPL imposes on downstream (including commercial
+  and closed-source) users. The `LICENSE` file, `package.json`, README badges,
+  and prose are all updated to Apache-2.0.
+
 ## [0.3.2] — 2026-07-02
 
 ### Fixed
