@@ -20,6 +20,29 @@ export function nowIso(clock: Clock): string {
 }
 
 /**
+ * JSON-serialize a record for a durable store WITHOUT ever throwing.
+ *
+ * `JSON.stringify` throws on `BigInt` and on circular references, which would
+ * otherwise abort a `saveRun`/`saveResult` *after* an effect has already fired —
+ * orphaning the effect and dropping the dedup key (so a redelivery re-fires it).
+ * This guard keeps the whole record persistable: `BigInt` becomes its decimal
+ * string, and a circular reference becomes a marker, per value. It is the
+ * counterpart to {@link toRecordable} (which guards the in-memory store's
+ * `structuredClone`) for the JSON-based durable stores.
+ */
+export function safeJsonStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, val: unknown) => {
+    if (typeof val === "bigint") return val.toString();
+    if (typeof val === "object" && val !== null) {
+      if (seen.has(val)) return "[Circular]";
+      seen.add(val);
+    }
+    return val;
+  });
+}
+
+/**
  * Coerce arbitrary connector output into something a store can persist. Output
  * is `unknown` and may contain non-serializable values (functions, class
  * instances); those would otherwise throw when the store clones the run record,

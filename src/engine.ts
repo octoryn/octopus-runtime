@@ -187,7 +187,24 @@ export class Engine {
       startedAt,
       finishedAt: nowIso(this.#deps.clock),
     };
-    await this.#deps.store.saveRun(run);
+    try {
+      await this.#deps.store.saveRun(run);
+    } catch (err) {
+      // A store that enforces unique ingestion (e.g. SQLite's UNIQUE(workflow,
+      // event)) rejects a second run for the same event — the cross-process
+      // race the in-process #inflight guard cannot cover. If another run won,
+      // it is canonical and the effect was deduped by the stable idempotency
+      // key; return the winner rather than surfacing a storage error.
+      const winner = await this.#deps.store.findRunByEvent(workflowId, event.id);
+      if (winner && winner.id !== run.id) {
+        // This run lost the race and has no persisted row. Its audit trail is
+        // already written under `runId`; mark it superseded so that orphaned
+        // trail is self-describing rather than silently dangling.
+        await emit("trigger", "run.superseded", { supersededBy: winner.id, eventId: event.id });
+        return winner;
+      }
+      throw err;
+    }
     return run;
   }
 
@@ -437,35 +454,38 @@ export class Engine {
       approval.actionRef,
       approval.idempotencyKey,
     );
+
+    // Determine the outcome (execute), THEN persist. Persistence is deliberately
+    // outside the execute try/catch: a store error must not mislabel an effect
+    // that actually succeeded as `failed`.
+    let result: ExecutionResult;
     try {
       const outcome = await this.#withTimeout(definition.execute(approval.rendered, cctx), "execute");
       await emit("connector_execute", "execute.succeeded", {
         effectRefs: outcome.effectRefs ?? [],
       });
-      const result = this.#finishData({
+      result = this.#finishData({
         ...common,
         outcome: "executed",
         output: toRecordable(outcome.output),
         effectRefs: outcome.effectRefs,
       });
-      await this.#deps.store.saveResult(result);
-      await emit("result", "result.recorded", { outcome: result.outcome });
-      return result;
     } catch (err) {
       const timedOut = isEngineTimeout(err);
       await emit("connector_execute", timedOut ? "execute.timed_out" : "execute.failed", {
         error: toErrorInfo(err),
       });
-      const result = this.#finishData({
+      result = this.#finishData({
         ...common,
         outcome: "failed",
         reason: timedOut ? "execute_timeout" : "execute_failed",
         error: toErrorInfo(err),
       });
-      await this.#deps.store.saveResult(result);
-      await emit("result", "result.recorded", { outcome: result.outcome });
-      return result;
     }
+
+    await this.#deps.store.saveResult(result);
+    await emit("result", "result.recorded", { outcome: result.outcome });
+    return result;
   }
 
   /**

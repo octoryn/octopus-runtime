@@ -258,19 +258,30 @@ The core depends only on interfaces. Every port ships a zero-config local
 adapter so the runtime runs on a laptop with nothing installed; the OS layer
 swaps in real adapters without touching the core.
 
-| Port | Purpose | In-memory default | Durable adapter |
+| Port | Purpose | In-memory default | Durable adapters |
 |---|---|---|---|
 | `Clock` | Time (deterministic tests) | `SystemClock` / `ManualClock` | — |
-| `Store` | Runs + results + event dedup | `MemoryStore` | `FileStore` |
-| `AuditSink` | Append-only decision + effect log | `MemoryAuditSink` | `FileAuditSink` |
-| `ApprovalGateway` | Persist Drafts + decisions | `MemoryApprovalGateway` | `FileApprovalGateway` |
+| `Store` | Runs + results + event dedup | `MemoryStore` | `FileStore`, `SqliteStore` |
+| `AuditSink` | Append-only decision + effect log | `MemoryAuditSink` | `FileAuditSink`, `SqliteAuditSink` |
+| `ApprovalGateway` | Persist Drafts + decisions | `MemoryApprovalGateway` | `FileApprovalGateway`, `SqliteApprovalGateway` |
 | `SecretProvider` | Connector credentials | `StaticSecretProvider` / `EnvSecretProvider` | — |
 
-The durable file adapters (`createFileBackend(dir)`) persist runs, audit, and
-approvals as atomically-written JSON on disk with zero dependencies, so state
-survives process restarts. They keep the same `Store`/`AuditSink`/
-`ApprovalGateway` interfaces, so a future SQLite or networked adapter drops in
-without touching the core.
+Two durable backends, same interfaces, no core changes:
+
+- **File** (`createFileBackend(dir)`) — atomically-written JSON, zero
+  dependencies. The run and its dedup pointer are two separate writes, so a
+  crash between them can let a redelivered event re-run (mitigated by the stable
+  idempotency key).
+- **SQLite** (`createSqliteBackend(path)`) — transactional. The run and its
+  `UNIQUE(workflow_id, event_id)` dedup key are the **same row in one atomic
+  commit**, so the two-write crash window is closed by construction: after a
+  crash the run and its dedup key are both durable or both absent, and a
+  duplicate run is impossible even across processes. `better-sqlite3` is an
+  optional peer dependency, imported only via the `/adapters/sqlite` entry point
+  — the core never loads it.
+
+That the second backend slotted in behind the existing `Store`/`AuditSink`/
+`ApprovalGateway` interfaces — no engine change — is the ports design paying off.
 
 Triggers enter by calling `runtime.dispatch(event)` (or `run(workflowId,
 event)`) directly, so v0 has no `EventSource` port — a host bridges webhooks/cron
@@ -304,7 +315,7 @@ src/
   engine.ts         # the pipeline + resolveApproval
   read.ts           # read-only query surface
   runtime.ts        # Runtime facade + createRuntime (wires defaults)
-  adapters/         # in-memory / local adapters for every port
+  adapters/         # in-memory + durable adapters (file, sqlite) for every port
   connectors/email.ts   # example connector (in-memory transport)
   cli.ts            # inspection CLI
 docs/ARCHITECTURE.md
@@ -441,15 +452,22 @@ Added in v0.1 (durability & operational safety), all additive to the API:
   cancelled, so the timeout bounds waiting, not the effect — which is why the
   stable idempotency key matters.
 
+Added in v0.2:
+
+- **Transactional SQLite backend** (`createSqliteBackend`) — closes the file
+  store's two-write crash window by making the run and its dedup key one atomic
+  row. Optional peer dependency, isolated to its own entry point.
+
 Still deferred (no API impact when added later):
 
-- **Parallel scheduling** across independent `dependsOn` branches.
-- **Cross-process store coordination** — the file adapters assume a single
-  runtime owns their data directory (in-process locking only).
-- **Crash-atomic ingestion dedup** — the file store's run and event-pointer are
-  two separate atomic writes; a crash between them can let a redelivered event
-  re-run after restart. Exactly-once *effects* rely on the connector honoring the
-  stable `idempotencyKey`; ingestion dedup is a best-effort optimization.
+- **Parallel scheduling** across independent `dependsOn` branches — deliberately
+  after durable-state atomicity, since parallelism amplifies consistency bugs.
+- **Cross-process file coordination** — the *file* adapters assume a single
+  runtime owns their directory (in-process locking only). The SQLite backend has
+  no such limitation for dedup/run atomicity.
+- **Single-commit unit-of-work across ports** — e.g. approval decision + result
+  in one transaction. Each port op is individually atomic today; a shared
+  transaction spanning ports is a future enhancement.
 - **Compensation / rollback** for partial failures — likely an OS-layer saga
   concern rather than a connector responsibility.
 - **Shadow correlation diffing** — the runtime emits predictions with

@@ -8,6 +8,7 @@
  */
 
 import { readFile, writeFile, rename } from "node:fs/promises";
+import { safeJsonStringify } from "../internal.js";
 
 /** Read and parse a JSON file; returns `undefined` if it does not exist. */
 export async function readJson<T>(path: string): Promise<T | undefined> {
@@ -23,7 +24,7 @@ export async function readJson<T>(path: string): Promise<T | undefined> {
 /** Atomically write `value` as JSON to `path` (temp file + rename). */
 export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   const tmp = `${path}.tmp`;
-  await writeFile(tmp, JSON.stringify(value), "utf8");
+  await writeFile(tmp, safeJsonStringify(value), "utf8");
   await rename(tmp, path);
 }
 

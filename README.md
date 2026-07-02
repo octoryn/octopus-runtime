@@ -153,9 +153,9 @@ in-memory adapter, so the runtime runs on a laptop with nothing installed:
 
 | Port | Default adapter |
 |---|---|
-| `Store` | `MemoryStore` — or durable `FileStore` |
-| `AuditSink` | `MemoryAuditSink` — or durable `FileAuditSink` |
-| `ApprovalGateway` | `MemoryApprovalGateway` — or durable `FileApprovalGateway` |
+| `Store` | `MemoryStore` · durable `FileStore` · transactional `SqliteStore` |
+| `AuditSink` | `MemoryAuditSink` · `FileAuditSink` · `SqliteAuditSink` |
+| `ApprovalGateway` | `MemoryApprovalGateway` · `FileApprovalGateway` · `SqliteApprovalGateway` |
 | `Clock` | `SystemClock` (`ManualClock` for tests) |
 | `SecretProvider` | `StaticSecretProvider` / `EnvSecretProvider` |
 
@@ -181,11 +181,28 @@ const runtime = createRuntime({
 });
 ```
 
-What you get:
+Two durable backends ship in the box:
 
-- **Survives restart.** Runs, the audit trail, and pending approvals live on
-  disk (atomic writes; one JSON file per run/approval, JSON Lines for audit). A
-  Draft created before a restart is still resolvable after it.
+- **`createFileBackend(dir)`** — zero-dependency JSON on disk. Great for local
+  and single-process use.
+- **`createSqliteBackend(path)`** — transactional SQLite, the production choice.
+  A run and its dedup key are the *same row* under a `UNIQUE(workflow, event)`
+  constraint, committed atomically — so there is **no two-write crash window**: a
+  redelivered event cannot re-run after a crash, and a duplicate run is
+  impossible even across processes. Requires the optional peer dependency
+  `better-sqlite3` (`npm i better-sqlite3`); import it from
+  `@octopus/workflow-runtime/adapters/sqlite`. The core never loads it.
+
+  ```ts
+  import { createSqliteBackend } from "@octopus/workflow-runtime/adapters/sqlite";
+  const backend = createSqliteBackend("./runtime.db");
+  const runtime = createRuntime({ ...backend, connectors, workflows });
+  ```
+
+What both give you:
+
+- **Survives restart.** Runs, the audit trail, and pending approvals are durable.
+  A Draft created before a restart is still resolvable after it.
 - **Idempotent ingestion.** A redelivered event (same `id`, same workflow) —
   e.g. a duplicate webhook — returns the original run instead of executing
   again, and the event is audited as `trigger.deduplicated`.
@@ -223,7 +240,7 @@ repository never assumes they exist.
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit
-npm test            # node --test (59 tests)
+npm test            # node --test (70 tests)
 npm run build       # emit dist/
 ```
 

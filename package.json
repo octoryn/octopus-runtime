@@ -17,6 +17,10 @@
     "./connectors/email": {
       "types": "./dist/connectors/email.d.ts",
       "import": "./dist/connectors/email.js"
+    },
+    "./adapters/sqlite": {
+      "types": "./dist/adapters/sqlite.d.ts",
+      "import": "./dist/adapters/sqlite.js"
     }
   },
   "files": [
@@ -43,8 +47,18 @@
     "governance",
     "connectors"
   ],
+  "peerDependencies": {
+    "better-sqlite3": ">=11"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.20.0",
+    "better-sqlite3": "^11.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
