@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] — 2026-07-02
+
+### Added
+- Tag-driven release workflow (`.github/workflows/release.yml`): pushing a `v*`
+  tag publishes to npm with provenance (supply-chain attestation).
+
+### Changed
+- Contact addresses moved to the `octopusos.ai` domain (`security@octopusos.ai`,
+  `conduct@octopusos.ai`); package author set to `Ran Tao <ran@octopusos.ai>`.
+
 ## [0.3.0] — 2026-07-02
 
 ### Added

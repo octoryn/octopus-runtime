@@ -7,7 +7,7 @@
 请**不要**为安全漏洞公开提交 issue。
 
 请通过 GitHub Security Advisories(仓库 Security 标签页中的 "Report a vulnerability")或发送邮件至
-**security@octoryn.com** 私下报告。请附上问题描述、复现步骤和影响范围。我们会争取在几个工作日内予以确认。
+**security@octopusos.ai** 私下报告。请附上问题描述、复现步骤和影响范围。我们会争取在几个工作日内予以确认。
 
 ## 范围说明
 

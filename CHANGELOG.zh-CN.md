@@ -5,6 +5,18 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.3.1] — 2026-07-02
+
+### 新增
+
+- 由 tag 驱动的发布工作流(`.github/workflows/release.yml`):推送 `v*` tag 即以 provenance
+  (供应链证明)发布到 npm。
+
+### 变更
+
+- 联系邮箱迁移到 `octopusos.ai` 域名(`security@octopusos.ai`、`conduct@octopusos.ai`);
+  包作者设为 `Ran Tao <ran@octopusos.ai>`。
+
 ## [0.3.0] — 2026-07-02
 
 ### 新增
