@@ -5,6 +5,17 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.5.0] — 2026-07-03
+
+### 新增
+- **`governTool` —— 治理你已有的工具。** 包裹任意异步工具函数(LangChain 工具的
+  `func`、CrewAI/agent 工具、普通的 `(input) => output`),让其副作用经过自主门,
+  而**无需重写 agent**。被包裹的函数只在 `autonomous` 路由、或已批准的 `draft` 上
+  被调用;在 observe/shadow/denied/未批准 draft 时绝不调用。路由委托给运行时真实的
+  `routeFor` 门,因此 `min(requested, ceiling)` 与"审批将 autonomous 降级为 draft"
+  与引擎内完全一致。新增导出 `governTool`、`GovernToolOptions`、`GovernedResult`;
+  可运行示例 `examples/govern-tool.ts`。
+
 ## [0.4.0] — 2026-07-03
 
 ### 变更

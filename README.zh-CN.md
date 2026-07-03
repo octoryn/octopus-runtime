@@ -103,6 +103,35 @@ npm run example
 npx octopus-runtime demo autonomous   # or: observe | shadow | draft
 ```
 
+## 治理你已有的工具
+
+无需重写 agent 即可治理它。`governTool` 包裹任意异步工具函数 —— LangChain 工具的
+`func`、CrewAI/agent 工具、普通的 `(input) => output` —— 让其副作用经过同一个自主门,
+且由运行时真实的路由(而非副本)强制执行:
+
+```ts
+import { governTool, AutonomyLevel } from "octopus-runtime";
+
+// 你已有的工具(例如某个 LangChain DynamicStructuredTool 的 func)。
+const sendEmail = async (input: { to: string; subject: string }) => post("/email", input);
+
+const governed = governTool(sendEmail, {
+  autonomy: AutonomyLevel.Draft,          // 把副作用暂扣待审批
+  ceiling: AutonomyLevel.Autonomous,      // 环境/策略上限:effective = min(requested, ceiling)
+  render: (i) => `会向 ${i.to} 发送 "${i.subject}"`,      // shadow/draft 时展示,无副作用
+  approve: async ({ preview }) => askHuman(preview),       // 仅在 draft 路由被调用
+});
+
+const r = await governed({ to: "a@b.com", subject: "Hi" });
+// r.executed 仅在 `autonomous` 路由或已批准的 `draft` 上为 true;
+// 在 observe/shadow/denied/未批准 draft 时,真实工具从不被调用。
+```
+
+被包裹的函数**只**在 `autonomous` 路由、或 `approve` 返回 true 后的 `draft` 上被调用
+—— 把结构性保证作用到你已经在跑的工具上。这按构造对应 OWASP Agentic 的 **ASI02**
+(工具滥用)与 **ASI09**(人-机信任)。若需完整策略评估、连接器与审计轨迹,请把副作用
+定义为连接器并经由 `Engine` 运行(见下)。可运行:[`examples/govern-tool.ts`](examples/govern-tool.ts)。
+
 ## 编写连接器
 
 连接器是无状态且相互隔离的。每个动作都拆分为一个**纯函数 `render`** 和一个

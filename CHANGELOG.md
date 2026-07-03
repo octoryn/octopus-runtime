@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-07-03
+
+### Added
+- **`governTool` — govern a tool you already have.** Wrap any async tool
+  function (a LangChain tool's `func`, a CrewAI/agent tool, a plain
+  `(input) => output`) so its side effect passes through the autonomy gate
+  without rewriting the agent. The wrapped function is invoked only on the
+  `autonomous` route or an approved `draft`; at observe/shadow/denied/un-approved
+  draft it is never called. Routing is delegated to the runtime's real `routeFor`
+  gate, so `min(requested, ceiling)` and "approval downgrades autonomous to draft"
+  hold exactly as in the engine. New exports `governTool`, `GovernToolOptions`,
+  `GovernedResult`; runnable `examples/govern-tool.ts`.
+
 ## [0.4.0] — 2026-07-03
 
 ### Changed

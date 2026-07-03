@@ -38,6 +38,10 @@ export type { Policy, PolicyContext, PolicyRuling, PolicyDecision, AppliedConstr
 export { routeFor, routeRenders, routeExecutes } from "./gate.js";
 export type { GateRoute } from "./gate.js";
 
+// --- Tool adapter (govern an existing tool) ------------------------------
+export { governTool } from "./tool.js";
+export type { GovernToolOptions, GovernedResult } from "./tool.js";
+
 // --- Connectors ----------------------------------------------------------
 export { defineConnector, defineAction, ConnectorRegistry } from "./connector.js";
 export type { Connector, ActionDefinition, ConnectorContext, ExecuteOutcome } from "./connector.js";

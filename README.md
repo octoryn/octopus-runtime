@@ -105,6 +105,38 @@ npm run example
 npx octopus-runtime demo autonomous   # or: observe | shadow | draft
 ```
 
+## Govern a tool you already have
+
+You don't have to rewrite your agent to govern it. `governTool` wraps any async
+tool function — a LangChain tool's `func`, a CrewAI/agent tool, a plain
+`(input) => output` — so its side effect passes through the same autonomy gate,
+enforced by the runtime's real routing (not a copy):
+
+```ts
+import { governTool, AutonomyLevel } from "octopus-runtime";
+
+// Your existing tool (e.g. a LangChain DynamicStructuredTool's func).
+const sendEmail = async (input: { to: string; subject: string }) => post("/email", input);
+
+const governed = governTool(sendEmail, {
+  autonomy: AutonomyLevel.Draft,          // hold effects for approval
+  ceiling: AutonomyLevel.Autonomous,      // an env/policy cap: effective = min(requested, ceiling)
+  render: (i) => `would send "${i.subject}" to ${i.to}`,   // shown at shadow/draft, no effect
+  approve: async ({ preview }) => askHuman(preview),        // called only on the draft route
+});
+
+const r = await governed({ to: "a@b.com", subject: "Hi" });
+// r.executed is true ONLY on the `autonomous` route or an approved `draft`;
+// at observe/shadow/denied/un-approved-draft the real tool is never called.
+```
+
+The wrapped function is invoked **only** on the `autonomous` route or a `draft`
+after `approve` returns true — the structural guarantee, applied to a tool you
+already run. This addresses OWASP Agentic **ASI02** (tool misuse) and **ASI09**
+(human-agent trust) by construction. For full policy evaluation, connectors, and
+an audit trail, define the effect as a connector and run it through the `Engine`
+(below). Runnable: [`examples/govern-tool.ts`](examples/govern-tool.ts).
+
 ## Writing a connector
 
 A connector is stateless and isolated. Each action splits into a **pure
