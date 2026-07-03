@@ -5,6 +5,30 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.6.0] — 2026-07-03
+
+### 新增
+- **`decisionEvidence` —— 为"agent 为何被允许(或不被允许)行动"留证。** 将一次
+  路由决策(`governTool` 返回的 `GovernedResult`)转化为防篡改、可验证的
+  [`octopus-evidence`](https://github.com/octoryn/octopus-evidence) `Evidence`:
+  `kind = governed-decision:<route>`、subject = 工具、content =
+  `{ route, effectiveAutonomy, executed, requestedAutonomy?, ceiling?, reason?,
+  preview? }`、provenance = `{ source: "octopus-runtime", method: "autonomy-gate" }`。
+  任何人都能重算哈希、确认决策未被事后篡改 —— 即 EU AI Act 第 12 条"决策自动记录"
+  在代码中的落地。时钟可注入(确定性;无模块作用域 `Date.now()`),并可选
+  `integritySecret` 做带密钥 HMAC。纯映射:未改变任何路由行为、自主语义或
+  `governTool` 结果形状。
+
+### 变更
+- 现依赖第一方 `octopus-evidence@^0.2.0` —— 其**唯一**运行时依赖(仍零第三方依赖)。
+
+### 修复
+- **`decisionEvidence` 对非 JSON 的 `preview` 永不抛异常。** 调用方的 `render` 可返回
+  任意值;当 preview 含非有限数(如除零得到的比率)、`undefined` 的可选字段、
+  `bigint` 或循环引用时,记录调用曾因未捕获的 `TypeError` 崩溃 —— 丢失整条审计
+  记录。现在 preview 会被强制转为规范 JSON 值(非有限数 → `null`、`bigint` → 字符串、
+  丢弃 `undefined`/函数、打破循环),使记录始终得以留存。由对抗性评审发现,已加回归测试。
+
 ## [0.5.0] — 2026-07-03
 
 ### 新增

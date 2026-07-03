@@ -42,6 +42,14 @@ export type { GateRoute } from "./gate.js";
 export { governTool } from "./tool.js";
 export type { GovernToolOptions, GovernedResult } from "./tool.js";
 
+// --- Decision evidence (verifiable audit trail of a routing decision) -----
+// Built on the first-party octopus-evidence primitive: turns an autonomy
+// routing decision into a tamper-evident, verifiable Evidence.
+export { decisionEvidence } from "./decision-evidence.js";
+export type { RoutingDecision, DecisionEvidenceOptions } from "./decision-evidence.js";
+export { verifyEvidence } from "octopus-evidence";
+export type { Evidence, Ref, Provenance, EvidenceKind, JsonValue } from "octopus-evidence";
+
 // --- Connectors ----------------------------------------------------------
 export { defineConnector, defineAction, ConnectorRegistry } from "./connector.js";
 export type { Connector, ActionDefinition, ConnectorContext, ExecuteOutcome } from "./connector.js";

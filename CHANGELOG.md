@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-07-03
+
+### Added
+- **`decisionEvidence` — attest *why* the agent was (or wasn't) allowed to act.**
+  Turns a routing decision (the `GovernedResult` from `governTool`) into a
+  tamper-evident, verifiable [`octopus-evidence`](https://github.com/octoryn/octopus-evidence)
+  `Evidence`: `kind = governed-decision:<route>`, subject = the tool, content =
+  `{ route, effectiveAutonomy, executed, requestedAutonomy?, ceiling?, reason?,
+  preview? }`, provenance = `{ source: "octopus-runtime", method: "autonomy-gate" }`.
+  Anyone can recompute the hash to confirm the decision was not altered after the
+  fact — the EU AI Act Art. 12 "automatic logging of decisions" story in code.
+  Injectable clock (deterministic; no module-scope `Date.now()`) and an optional
+  `integritySecret` for a keyed HMAC. A pure mapping: no routing behavior,
+  autonomy semantics, or `governTool` result shape changed.
+
+### Changed
+- Now depends on the first-party `octopus-evidence@^0.2.0` — its **only** runtime
+  dependency (still zero third-party deps).
+
+### Fixed
+- **`decisionEvidence` never throws on a non-JSON `preview`.** A caller `render`
+  can return anything; a preview holding a non-finite number (e.g. a ratio over
+  zero), an `undefined` optional field, a `bigint`, or a cycle used to crash the
+  logging call with an uncaught `TypeError` — losing the whole audit record. The
+  preview is now coerced to a canonical JSON value (non-finite → `null`, `bigint`
+  → string, `undefined`/functions dropped, cycles broken) so the record always
+  survives. Found by adversarial review; regression-tested.
+
 ## [0.5.0] — 2026-07-03
 
 ### Added

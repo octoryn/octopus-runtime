@@ -41,10 +41,18 @@ test("no source file imports a forbidden surrounding system", () => {
   assert.deepEqual(offenders, [], `forbidden imports found:\n${offenders.join("\n")}`);
 });
 
-test("the runtime declares no npm runtime dependencies", () => {
+test("the runtime declares zero third-party runtime dependencies", () => {
   const pkgPath = join(srcDir, "..", "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
     dependencies?: Record<string, string>;
   };
-  assert.deepEqual(pkg.dependencies ?? {}, {}, "core must stay dependency-free; found runtime dependencies");
+  // The only permitted runtime dependency is the first-party octopus-evidence
+  // primitive (itself zero-dependency), which provides the canonical hashing and
+  // tamper-evident Evidence the whole stack shares. Everything else stays out.
+  const deps = Object.keys(pkg.dependencies ?? {});
+  assert.deepEqual(
+    deps,
+    ["octopus-evidence"],
+    "core must stay third-party-dependency-free; the only allowed runtime dependency is octopus-evidence"
+  );
 });

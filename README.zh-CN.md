@@ -6,6 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/octoryn/octopus-runtime?sort=semver)](https://github.com/octoryn/octopus-runtime/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
+[![Built on octopus-evidence](https://img.shields.io/badge/built%20on-octopus--evidence-7c9cff.svg)](https://github.com/octoryn/octopus-evidence)
 
 > **[Octopus Core](https://github.com/octoryn) 的一部分 —— 受治理 AI 的开源基础设施栈。** 每个仓库只做一件事，沿 agent 生命周期组合：[Scout](https://github.com/octoryn/octopus-scout) · [Observe](https://github.com/octoryn/octopus-observe) · [Experience](https://github.com/octoryn/octopus-experience) · [Blackboard](https://github.com/octoryn/octopus-blackboard) · [Runtime](https://github.com/octoryn/octopus-runtime) · [Replay](https://github.com/octoryn/octopus-replay) —— [Inspect](https://github.com/octoryn/octopus-inspect) 横贯每一环做治理。
 >
@@ -48,7 +49,10 @@ Trigger → Conditions → Policies → Action Plan → Autonomy Gate
 npm install octopus-runtime
 ```
 
-需要 Node ≥ 22。核心库**零运行时依赖**。
+需要 Node ≥ 22。核心库**零第三方依赖**：唯一的运行时依赖是第一方的
+[`octopus-evidence`](https://github.com/octoryn/octopus-evidence) 原语（其自身零依赖），
+它提供整个技术栈共享的规范化哈希与防篡改 Evidence —— 也正是把一次路由决策变成可验证审计轨迹的同一原语（见
+[`decisionEvidence`](#decision-evidence)）。运行时在其他方面仍可完全独立使用。
 
 ## 快速上手
 
