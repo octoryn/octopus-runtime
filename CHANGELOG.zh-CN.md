@@ -5,6 +5,36 @@
 本文件记录项目的所有重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/),
 版本遵循 [语义化版本(SemVer)](https://semver.org/)。
 
+## [0.7.0] — 2026-07-04
+
+### 新增
+- **身份与授权端口 —— 组织级身份(SSO/RBAC)的开放接缝。** 运行时一直*记录*谁
+  行动过(`decidedBy`、actor 引用),却从未*验证*或*授权*他们。两个纯增量端口补上
+  这道缺口,使外层操作系统(商业版)能以适配器方式接入 SSO/RBAC,而无需 fork 内核:
+  - **`Principal`** —— 已验证的行动者 `{ id, tenantId?, roles, source, displayName? }`。
+    `roles` 对内核不透明,仅由 `Authorizer` 解释。
+  - **`IdentityProvider { authenticate(credential): Promise<Principal | undefined> }`**,
+    并附真实默认实现 **`localIdentity`**,返回单用户 **`LOCAL_PRINCIPAL`**
+    (`source: "local"`)—— 即今天的行为,保持不变。
+  - **`Authorizer { can(principal, action, resource?): boolean | Promise<boolean> }`**,
+    默认 **`allowAll`** 放行一切 —— 真正的空操作(no-op)。
+  - `Authorizer` 以**可选接入**方式挂在今天唯一"谁可以行动"生效的路径上:解决审批
+    (action 为 `"approval.decide"`)。在 `RuntimeOptions`/`EngineDeps` 传入
+    `authorizer` 后,决策必须携带已验证的 `Principal` 且被放行,否则在任何副作用或
+    记录之前以新的 **`AuthorizationError`** fail-closed。不传(默认)则行为与之前
+    逐字节一致。
+  - 授权与自主性**正交**:它约束*谁*行动,绝不约束*行动能走多远*。自主路由不受影响。
+  - **可信归属(verified attribution)。** 当决策携带 `principal` 时,该 principal 的
+    `id`——即真正被认证并授权的身份——才是审批记录与 `approval.decided` 审计条目对
+    这次决策的归属,而非调用方未经验证的自由文本 `decidedBy`。因此行动者无法以其未被
+    认证的身份记录一次决策。不带 principal(默认)时,`decidedBy` 的归属与之前完全一致。
+- **说明(不在本次范围):** OIDC/SAML SSO 与 RBAC 是这些端口的商业*适配器*,不属于开放
+  内核。后续会为 observe 的 `ReadApi` 增加一个可选 `Authorizer` 以对证据读取做门禁。
+
+### 变更
+- 严格增量。既有 101 个测试全部原样通过;`Principal`、`AutonomyLevel` 及所有冻结的
+  记录/线格式契约均未改动。
+
 ## [0.6.0] — 2026-07-03
 
 ### 新增

@@ -1,6 +1,6 @@
 {
   "name": "octopus-runtime",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Standalone governed execution runtime. Moves work from trigger to result across autonomy, policy, approval, connector, execution, and audit boundaries.",
   "license": "Apache-2.0",
   "author": "Ran Tao <ran@octopusos.ai>",

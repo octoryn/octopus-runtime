@@ -60,6 +60,99 @@ export interface SecretProvider {
 }
 
 /**
+ * A verified, authenticated actor.
+ *
+ * This is the identity the audit trail already *records* (`decidedBy`, actor
+ * refs) but that nothing in the open core has ever *verified*. A `Principal` is
+ * the output of an {@link IdentityProvider} — it must only be constructed by a
+ * provider that has actually authenticated the caller. Treating a `Principal`
+ * built directly from unverified request input as trusted would defeat the whole
+ * point of the seam; on a trusted path, obtain it from `authenticate`, never
+ * from raw user-supplied JSON.
+ *
+ * `roles` is opaque to the core — the runtime never interprets it. Only an
+ * {@link Authorizer} gives roles meaning. Identity/authorization is orthogonal
+ * to autonomy: a `Principal` answers *who* is acting, while an `AutonomyLevel`
+ * governs *how far* an action may go. The two never substitute for each other.
+ */
+export interface Principal {
+  /** Stable subject id (e.g. an OIDC `sub`). */
+  readonly id: string;
+  /** Organisation/tenant scope, when the deployment is multi-tenant. */
+  readonly tenantId?: string;
+  /** Opaque role labels; interpreted only by an {@link Authorizer}. */
+  readonly roles: readonly string[];
+  /** How this principal was authenticated: `"local"`, `"oidc"`, `"saml"`, … */
+  readonly source: string;
+  /** Human-friendly label for display/audit; never used for authorization. */
+  readonly displayName?: string;
+}
+
+/**
+ * Turns a request-scoped credential into a verified {@link Principal}, or
+ * `undefined` when the credential is absent/invalid. The credential is `unknown`
+ * because its shape is the adapter's concern (a bearer token, an assertion, a
+ * session cookie); the core only consumes the resulting `Principal`.
+ *
+ * Adapters (commercial SSO: OIDC/SAML) implement this; the open default is
+ * {@link localIdentity}. Returning `undefined` — not throwing — is how an
+ * adapter signals "not authenticated", so callers fail closed by treating the
+ * absence of a principal as unauthorized.
+ */
+export interface IdentityProvider {
+  authenticate(credential: unknown): Promise<Principal | undefined>;
+}
+
+/** The single-user principal returned by {@link localIdentity}. */
+export const LOCAL_PRINCIPAL: Principal = Object.freeze({
+  id: "local",
+  roles: Object.freeze(["owner"]) as readonly string[],
+  source: "local",
+  displayName: "Local user"
+});
+
+/**
+ * Open default identity: the local single user. It authenticates every call to
+ * the same {@link LOCAL_PRINCIPAL}, which is exactly today's behaviour — a
+ * self-hoster is the sole owner of their box. It is a real, usable provider, not
+ * a stub: pair it with {@link allowAll} and the runtime behaves precisely as it
+ * did before identity existed. Substitute an SSO adapter to make identity real
+ * across an organisation.
+ */
+export const localIdentity: IdentityProvider = {
+  authenticate: (_credential: unknown): Promise<Principal | undefined> => Promise.resolve(LOCAL_PRINCIPAL)
+};
+
+/**
+ * Authorizes *who may do what* — orthogonal to the autonomy model, which governs
+ * *how far* an action may go. Actors are recorded throughout the runtime today
+ * but never authorized; this port is the missing decision point.
+ *
+ * `action` is a stable verb string (e.g. `"approval.decide"`, and later
+ * `"policy.change"` / `"evidence.read"`); `resource` optionally names the thing
+ * acted upon. `can` may answer synchronously or asynchronously (a remote policy
+ * check). It returns a boolean *decision*, never throws for a plain deny —
+ * callers turn `false` into a fail-closed refusal at the boundary.
+ */
+export interface Authorizer {
+  can(
+    principal: Principal,
+    action: string,
+    resource?: { readonly type: string; readonly id: string }
+  ): boolean | Promise<boolean>;
+}
+
+/**
+ * Open default authorization: allow everything. This preserves today's
+ * behaviour exactly — the runtime has always recorded actors without gating
+ * them — so wiring the {@link Authorizer} decision point in with `allowAll` is a
+ * true no-op. A commercial RBAC adapter replaces it to make roles binding.
+ */
+export const allowAll: Authorizer = {
+  can: (): boolean => true
+};
+
+/**
  * A set of state changes to persist together. Used at points where more than one
  * piece of durable state must move as a unit — chiefly resolving an approval,
  * which flips the approval's status, records the execution result, and appends

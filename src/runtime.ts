@@ -8,7 +8,7 @@
  * ```
  */
 
-import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor } from "./ports.js";
+import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor, Authorizer } from "./ports.js";
 import type { Connector } from "./connector.js";
 import { ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
@@ -34,6 +34,14 @@ export interface RuntimeOptions {
   audit?: AuditSink;
   approvals?: ApprovalGateway;
   secrets?: SecretProvider;
+  /**
+   * Optional authorization decision point. When provided, resolving an approval
+   * requires a verified {@link Principal} on the decision and the authorizer's
+   * permission (`"approval.decide"`), failing closed otherwise. Omit it (the
+   * default) and no authorization check runs — behaviour is unchanged. Pair an
+   * {@link IdentityProvider} at your edge with this to gate who may act.
+   */
+  authorizer?: Authorizer;
   /**
    * Optional atomic-commit capability. When provided (e.g. from
    * `createSqliteBackend`), resolving an approval commits its status, result,
@@ -84,6 +92,9 @@ export class Runtime {
       secrets,
       registry: this.#registry
     };
+    if (options.authorizer !== undefined) {
+      engineDeps.authorizer = options.authorizer;
+    }
     if (options.transactor !== undefined) {
       engineDeps.transactor = options.transactor;
     }

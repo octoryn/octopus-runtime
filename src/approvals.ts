@@ -9,6 +9,7 @@
 
 import type { AutonomyLevel } from "./autonomy.js";
 import type { RenderedAction } from "./types.js";
+import type { Principal } from "./ports.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
 
@@ -44,7 +45,25 @@ export interface Approval {
 /** A decision applied to a pending approval. */
 export interface ApprovalDecision {
   approved: boolean;
-  /** Who made the decision. Opaque to the runtime; recorded for audit. */
+  /**
+   * Who made the decision — unverified free-text, opaque to the runtime. It is
+   * the recorded attribution **only when no {@link principal} is supplied**. When
+   * a verified principal is present, that principal's `id` is the authoritative
+   * attribution written to the approval and audit trail, and this field is
+   * ignored for attribution — so a caller cannot record a decision under an
+   * identity they were not authenticated as.
+   */
   decidedBy: string;
   note?: string;
+  /**
+   * The verified actor making this decision. Obtain it from an
+   * {@link IdentityProvider}; never build it from unverified request input on a
+   * trusted path. Its `id` becomes the recorded attribution (in the approval's
+   * `decidedBy` and the `approval.decided` audit record) whenever it is present.
+   * Required when an {@link Authorizer} is configured — it is the subject of the
+   * `"approval.decide"` check and a decision without it fails closed. Purely
+   * additive: existing callers that pass no principal are attributed by
+   * `decidedBy` exactly as before.
+   */
+  principal?: Principal;
 }

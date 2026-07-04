@@ -209,6 +209,47 @@ const policies = [
 外层操作系统可以替换为持久化或联网的适配器——包括那些桥接到记忆、感知或信号
 系统的适配器——而**无需触碰核心**。依赖箭头始终指向内部。
 
+## 身份与授权（面向 SSO/RBAC 的开放接缝）
+
+运行时一直*记录*谁行动过,却从未*验证*或*授权*他们。两个纯增量端口——附带真实、
+可用的默认实现——正是组织级层(商业版)用来适配 SSO 与 RBAC 的开放扩展点,
+**无需 fork 内核**:
+
+| 端口 | 回答什么 | 开放默认 |
+|---|---|---|
+| `IdentityProvider` → `Principal` | *谁*在行动(已验证) | `localIdentity` → 单用户 `LOCAL_PRINCIPAL` |
+| `Authorizer` | 该行动者*可否*做此事? | `allowAll`(放行一切) |
+
+授权与自主性**正交**:`Authorizer` 约束*谁*可以行动,而 `AutonomyLevel` 约束
+*行动能走多远*。默认实现精确复现今天的单用户行为——挂上它们不改变任何东西。
+
+`Authorizer` 以**可选接入**方式挂在今天唯一"谁可以行动"生效的路径上:解决审批
+(`"approval.decide"`)。一旦提供,决策必须携带已验证的 `Principal` 且被放行,
+否则在任何副作用之前 fail-closed:
+
+```ts
+import { createRuntime, type Authorizer } from "octopus-runtime";
+
+// 商业 RBAC 适配器的形状——开放内核只定义端口。
+const rbac: Authorizer = {
+  can: (principal, action) =>
+    action === "approval.decide" && principal.roles.includes("approver"),
+};
+
+const runtime = createRuntime({ connectors, workflows, authorizer: rbac });
+
+// principal 从 IdentityProvider 获取(商业版中即 OIDC/SAML 适配器)——
+// 在可信路径上,绝不要从原始请求输入直接构造它。
+await runtime.resolveApproval(approvalId, {
+  approved: true,
+  decidedBy: "alice",
+  principal: { id: "alice", roles: ["approver"], source: "oidc" },
+});
+```
+
+不传 `authorizer`,行为便与接缝出现之前逐字节一致。OIDC/SAML SSO 与角色映射是这些
+端口的商业**适配器**,不属于开放内核。
+
 ## 持久化、幂等与时限
 
 对于那些必须能挺过真实进程重启、重复投递、审批延迟和慢速连接器的工作，只需

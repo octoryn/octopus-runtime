@@ -60,6 +60,13 @@ export type { Approval, ApprovalDecision, ApprovalStatus } from "./approvals.js"
 // --- Ports ---------------------------------------------------------------
 export type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor, StateChange } from "./ports.js";
 
+// --- Identity & authorization ports (open seams the commercial edition adapts) -
+// Additive: `who may act`, orthogonal to autonomy (`how far`). The defaults
+// preserve today's single-user behaviour exactly — an SSO/RBAC adapter swaps in
+// without touching the core.
+export type { Principal, IdentityProvider, Authorizer } from "./ports.js";
+export { localIdentity, allowAll, LOCAL_PRINCIPAL } from "./ports.js";
+
 // --- Adapters (in-memory / local defaults) -------------------------------
 export {
   MemoryStore,
@@ -96,7 +103,14 @@ export type {
 export { newId, idempotencyKey, compositeKey } from "./ids.js";
 
 // --- Errors --------------------------------------------------------------
-export { RuntimeError, ValidationError, ConfigurationError, NotFoundError, TimeoutError } from "./errors.js";
+export {
+  RuntimeError,
+  ValidationError,
+  ConfigurationError,
+  NotFoundError,
+  AuthorizationError,
+  TimeoutError
+} from "./errors.js";
 
 // --- Schema (zero-dependency; any `Schema<T>` such as Zod also works) -----
 export * as schema from "./schema.js";

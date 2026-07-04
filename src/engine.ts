@@ -24,7 +24,16 @@ import type {
   RunRecord,
   TriggerEvent
 } from "./types.js";
-import type { Clock, Store, AuditSink, ApprovalGateway, SecretProvider, Transactor, StateChange } from "./ports.js";
+import type {
+  Clock,
+  Store,
+  AuditSink,
+  ApprovalGateway,
+  SecretProvider,
+  Transactor,
+  StateChange,
+  Authorizer
+} from "./ports.js";
 import type { Approval, ApprovalDecision } from "./approvals.js";
 import type { ConnectorContext, ConnectorRegistry } from "./connector.js";
 import type { Workflow } from "./workflow.js";
@@ -35,7 +44,7 @@ import { routeFor } from "./gate.js";
 import { validatePlan } from "./workflow.js";
 import { newId, idempotencyKey, compositeKey } from "./ids.js";
 import { toErrorInfo, nowIso, toRecordable, withTimeout, isEngineTimeout } from "./internal.js";
-import { ConfigurationError, NotFoundError } from "./errors.js";
+import { AuthorizationError, ConfigurationError, NotFoundError } from "./errors.js";
 
 /** Fully-resolved dependencies the engine runs against. */
 export interface EngineDeps {
@@ -45,6 +54,16 @@ export interface EngineDeps {
   approvals: ApprovalGateway;
   secrets: SecretProvider;
   registry: ConnectorRegistry;
+  /**
+   * Optional authorization decision point for actions where *who may act*
+   * matters — today, resolving an approval (`"approval.decide"`). When present,
+   * a decision must carry a verified {@link Principal} and the authorizer must
+   * allow it, or the resolve fails closed with an {@link AuthorizationError}
+   * before any effect or record. When absent (the default), no check runs and
+   * behaviour is byte-identical to before this port existed. This is orthogonal
+   * to autonomy: it gates the actor, not how far the action may go.
+   */
+  authorizer?: Authorizer;
   /**
    * Optional atomic-commit capability. When present, multi-write state
    * transitions (resolving an approval: status + result + audit) commit as one
@@ -386,12 +405,40 @@ export class Engine {
     }
   }
 
+  /**
+   * Enforce the opt-in authorization gate for deciding an approval. No-op unless
+   * an {@link Authorizer} is configured. When one is, the decision must carry a
+   * verified {@link Principal} (a missing principal fails closed) and the
+   * authorizer must permit `"approval.decide"` on this approval, or an
+   * {@link AuthorizationError} is thrown before any state changes.
+   */
+  async #authorizeDecision(approvalId: string, decision: ApprovalDecision): Promise<void> {
+    const authorizer = this.#deps.authorizer;
+    if (!authorizer) return;
+    if (!decision.principal) {
+      throw new AuthorizationError(`deciding approval "${approvalId}" requires an authenticated principal`);
+    }
+    const allowed = await authorizer.can(decision.principal, "approval.decide", {
+      type: "approval",
+      id: approvalId
+    });
+    if (!allowed) {
+      throw new AuthorizationError(`principal "${decision.principal.id}" may not decide approval "${approvalId}"`);
+    }
+  }
+
   async #applyApprovalDecision(approvalId: string, decision: ApprovalDecision): Promise<ExecutionResult> {
     const approval = await this.#deps.approvals.get(approvalId);
     if (!approval) throw new NotFoundError(`unknown approval "${approvalId}"`);
     if (approval.status !== "pending") {
       throw new ConfigurationError(`approval "${approvalId}" is already ${approval.status}`);
     }
+
+    // Authorization gate (opt-in): with an authorizer configured, only a
+    // permitted principal may decide this approval — checked before any effect
+    // or record, so a denial changes nothing. Absent an authorizer this is a
+    // no-op and behaviour is unchanged.
+    await this.#authorizeDecision(approvalId, decision);
 
     // Fail-closed on TTL: an approval decided after its deadline never executes.
     if (this.#isExpired(approval)) {
@@ -420,7 +467,7 @@ export class Engine {
         approval: this.#decide(approval, "rejected", decision),
         result,
         audit: [
-          this.#decisionRecord(approval, { approved: false, decidedBy: decision.decidedBy }),
+          this.#decisionRecord(approval, { approved: false, decidedBy: this.#attribution(decision) }),
           this.#resultRecord(approval, result.outcome)
         ]
       });
@@ -445,7 +492,9 @@ export class Engine {
     // approval only actually flips to `approved` when the commit lands, after
     // the effect.)
     const resolvedApproval = this.#decide(approval, "approved", decision);
-    const audit: AuditRecord[] = [this.#decisionRecord(approval, { approved: true, decidedBy: decision.decidedBy })];
+    const audit: AuditRecord[] = [
+      this.#decisionRecord(approval, { approved: true, decidedBy: this.#attribution(decision) })
+    ];
     let result: ExecutionResult;
     try {
       const outcome = await this.#withTimeout(definition.execute(approval.rendered, cctx), "execute");
@@ -606,12 +655,25 @@ export class Engine {
   }
 
   /** Produce the resolved approval for a decision (approved/rejected). */
+  /**
+   * The identity attributed to a decision in durable records. When the decision
+   * carries a verified {@link Principal}, that principal's `id` is authoritative
+   * — it is what an {@link Authorizer} actually authorized, so the audit trail
+   * must attribute the decision to it, not to the caller-supplied free-text
+   * `decidedBy` (which an actor could set to anyone). With no principal (the
+   * default path), `decidedBy` is the attribution exactly as before — behaviour
+   * is unchanged for callers who never adopt identity.
+   */
+  #attribution(decision: ApprovalDecision): string {
+    return decision.principal?.id ?? decision.decidedBy;
+  }
+
   #decide(approval: Approval, status: "approved" | "rejected", decision: ApprovalDecision): Approval {
     const resolved: Approval = {
       ...approval,
       status,
       decidedAt: nowIso(this.#deps.clock),
-      decidedBy: decision.decidedBy
+      decidedBy: this.#attribution(decision)
     };
     if (decision.note !== undefined) resolved.note = decision.note;
     return resolved;

@@ -221,6 +221,51 @@ An outer operating system substitutes durable or networked adapters — includin
 ones that bridge to memory, awareness, or signal systems — **without touching
 the core**. Dependency arrows always point inward.
 
+## Identity & authorization (open seams for SSO/RBAC)
+
+The runtime has always *recorded* who acted, but never *verified* or *authorized*
+them. Two additive ports — with honest, usable defaults — are the open extension
+points an organisation-scale layer (the commercial edition) adapts for SSO and
+RBAC, **without forking the core**:
+
+| Port | What it answers | Open default |
+|---|---|---|
+| `IdentityProvider` → `Principal` | *Who* is acting (verified) | `localIdentity` → the single-user `LOCAL_PRINCIPAL` |
+| `Authorizer` | *May* this actor do this? | `allowAll` (permits everything) |
+
+Authorization is **orthogonal to autonomy**: the `Authorizer` gates *who* may
+act, while an `AutonomyLevel` governs *how far* an action may go. The defaults
+reproduce today's single-user behaviour exactly — wiring them in changes nothing.
+
+The `Authorizer` is an **opt-in** decision point on the one path where "who may
+act" matters today: resolving an approval (`"approval.decide"`). Provide one and
+a decision must carry a verified `Principal` and be permitted, or it fails closed
+before any effect:
+
+```ts
+import { createRuntime, type Authorizer } from "octopus-runtime";
+
+// A commercial RBAC adapter shape — the open core only defines the port.
+const rbac: Authorizer = {
+  can: (principal, action) =>
+    action === "approval.decide" && principal.roles.includes("approver"),
+};
+
+const runtime = createRuntime({ connectors, workflows, authorizer: rbac });
+
+// Obtain the principal from an IdentityProvider (an OIDC/SAML adapter in the
+// commercial edition) — never from raw request input on a trusted path.
+await runtime.resolveApproval(approvalId, {
+  approved: true,
+  decidedBy: "alice",
+  principal: { id: "alice", roles: ["approver"], source: "oidc" },
+});
+```
+
+Omit `authorizer` and behaviour is byte-identical to before the seam existed.
+OIDC/SAML SSO and role mapping are commercial **adapters** of these ports, not
+part of the open core.
+
 ## Durability, idempotency, and time limits
 
 For work that must survive real process restarts, duplicate deliveries, approval

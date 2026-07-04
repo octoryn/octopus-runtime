@@ -6,6 +6,44 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-07-04
+
+### Added
+- **Identity & authorization ports — the open seams for org identity (SSO/RBAC).**
+  The runtime has always *recorded* who acted (`decidedBy`, actor refs) but never
+  *verified* or *authorized* them. Two additive ports close that gap, so an outer
+  operating system (the commercial edition) can adapt SSO/RBAC without forking the
+  core:
+  - **`Principal`** — a verified actor `{ id, tenantId?, roles, source, displayName? }`.
+    `roles` is opaque to the core; only an `Authorizer` interprets it.
+  - **`IdentityProvider { authenticate(credential): Promise<Principal | undefined> }`**
+    with a real default **`localIdentity`** that yields the single-user
+    **`LOCAL_PRINCIPAL`** (`source: "local"`) — today's behaviour, unchanged.
+  - **`Authorizer { can(principal, action, resource?): boolean | Promise<boolean> }`**
+    with a default **`allowAll`** that permits everything — a true no-op.
+  - The `Authorizer` is wired as an **opt-in** decision point on the one path
+    where *who may act* matters today: resolving an approval (action
+    `"approval.decide"`). Pass an `authorizer` on `RuntimeOptions`/`EngineDeps`
+    and a decision must carry a verified `Principal` and be permitted, or it
+    fails closed with the new **`AuthorizationError`** before any effect or
+    record. Pass none (the default) and behaviour is byte-identical to before.
+  - Authorization is **orthogonal to autonomy**: it gates *who* acts, never *how
+    far* an action goes. Autonomy routing is untouched.
+  - **Verified attribution.** When a decision carries a `principal`, that
+    principal's `id` — the identity actually authenticated and authorized — is
+    what the approval record and the `approval.decided` audit entry attribute the
+    decision to, not the caller's unverified free-text `decidedBy`. So an actor
+    cannot record a decision under an identity they were not authenticated as.
+    With no principal (the default), `decidedBy` is the attribution exactly as
+    before.
+- **Note (out of scope):** OIDC/SAML SSO and RBAC are commercial *adapters* of
+  these ports, not part of the open core. A later follow-up will add an optional
+  `Authorizer` to observe's `ReadApi` for evidence-read gating.
+
+### Changed
+- Strictly additive. All 101 pre-existing tests pass unchanged; `Principal`,
+  `AutonomyLevel`, and every frozen record/wire contract are untouched.
+
 ## [0.6.0] — 2026-07-03
 
 ### Added
