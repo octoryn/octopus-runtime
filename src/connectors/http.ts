@@ -13,7 +13,7 @@
  *   action `failed`, fail-closed.
  *
  * ```ts
- * import { createHttpConnector } from "@octopus/workflow-runtime/connectors/http";
+ * import { createHttpConnector } from "octopus-runtime/connectors/http";
  * const http = createHttpConnector();
  * // action: { connectorId: "http", actionType: "http.request",
  * //           input: { method: "POST", url: "https://api.example.com/things", body: "{...}" } }

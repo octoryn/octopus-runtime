@@ -4,8 +4,8 @@
  * (a welcome email on signup) at a chosen autonomy level and prints the run
  * record and full audit trail as JSON.
  *
- *   workflow-runtime demo autonomous
- *   workflow-runtime demo draft
+ *   octopus-runtime demo autonomous
+ *   octopus-runtime demo draft
  *
  * State is in-memory per process, so this is for demonstration and inspection,
  * not a long-running server.
@@ -15,11 +15,11 @@ import { createRuntime, defineWorkflow, matchSource, AutonomyLevel } from "./ind
 import type { AutonomyLevel as AutonomyLevelType } from "./index.js";
 import { createEmailConnector, inMemoryTransport } from "./connectors/email.js";
 
-const USAGE = `workflow-runtime — governed execution runtime
+const USAGE = `octopus-runtime — governed execution runtime
 
 Usage:
-  workflow-runtime demo [observe|shadow|draft|autonomous]   Run the demo workflow
-  workflow-runtime help                                     Show this help
+  octopus-runtime demo [observe|shadow|draft|autonomous]   Run the demo workflow
+  octopus-runtime help                                     Show this help
 
 The demo emits a signup event to a "welcome email" workflow and prints the
 resulting run record and audit trail as JSON.`;

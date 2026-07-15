@@ -343,7 +343,7 @@ The stated optimization is *connector authoring speed*. The SDK reduces a
 connector to schemas plus two functions per action:
 
 ```ts
-import { defineConnector, defineAction, schema as s } from "@octopus/workflow-runtime";
+import { defineConnector, defineAction, schema as s } from "octopus-runtime";
 
 export const email = defineConnector({
   id: "email",

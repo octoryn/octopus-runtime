@@ -59,7 +59,9 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"examples/**/*.ts\"",
     "example": "tsx examples/basic.ts",
     "cli": "tsx src/cli.ts",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build",
+    "release:smoke": "npm pack --dry-run",
+    "prepublishOnly": "npm run verify && npm run release:smoke"
   },
   "keywords": [
     "workflow",
@@ -81,7 +83,7 @@
     "@eslint/js": "^9.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.20.0",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.11.1",
     "eslint": "^9.0.0",
     "prettier": "^3.4.0",
     "tsx": "^4.19.2",
