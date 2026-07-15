@@ -21,7 +21,7 @@
  * dependency on it — importing the main entry point never loads it.
  *
  * ```ts
- * import { createSqliteBackend } from "@octopus/workflow-runtime/adapters/sqlite";
+ * import { createSqliteBackend } from "octopus-runtime/adapters/sqlite";
  * const backend = createSqliteBackend("./runtime.db");
  * const runtime = createRuntime({ ...backend, connectors, workflows });
  * // …later: backend.close();

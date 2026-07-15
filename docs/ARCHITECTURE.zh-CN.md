@@ -317,7 +317,7 @@ docs/ARCHITECTURE.md
 两个函数：
 
 ```ts
-import { defineConnector, defineAction, schema as s } from "@octopus/workflow-runtime";
+import { defineConnector, defineAction, schema as s } from "octopus-runtime";
 
 export const email = defineConnector({
   id: "email",
